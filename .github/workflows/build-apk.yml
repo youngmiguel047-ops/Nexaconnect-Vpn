@@ -1,0 +1,74 @@
+name: Build Android APK (Antares VPN)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # Permet de lancer la compilation manuellement en 1 clic depuis GitHub
+
+jobs:
+  build:
+    name: Build Antares VPN Debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Cloner le dépôt
+        uses: actions/checkout@v4
+
+      - name: 2. Configurer Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Configurer Java 17 (JDK Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. Configurer Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 5. Installer les dépendances npm
+        run: npm install
+
+      - name: 6. Compiler l'application web Vite
+        run: npm run build
+
+      - name: 7. Synchroniser Capacitor avec le projet Android
+        run: npx cap sync android
+
+      - name: 8. Donner les droits d'exécution au Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: 9. Compiler l'APK Android Debug
+        run: |
+          cd android
+          ./gradlew assembleDebug --stacktrace
+
+      - name: 10. Mettre en ligne l'APK (Artefact téléchargeable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Antares-VPN-Debug-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      # Optionnel : Créer une Release GitHub si un tag ou déclenchement manuel
+      - name: 11. Créer une Release avec l'APK téléchargeable sur mobile
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v3.4.0-${{ github.run_number }}
+          name: Antares VPN v3.4.0 (Build ${{ github.run_number }})
+          body: |
+            ### 🚀 Antares VPN — APK Android Prêt à l'installation
+            - **Package ID** : `com.antares.vpn`
+            - **Version** : 3.4.0-neon (Build ${{ github.run_number }})
+            - **Protocole** : VLESS-Reality & Hysteria 2
+            
+            Téléchargez le fichier `app-debug.apk` ci-dessous directement sur votre smartphone Android pour l'installer.
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
