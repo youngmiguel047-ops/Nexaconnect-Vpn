@@ -5,9 +5,8 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch: # Permet de relancer la compilation en 1 clic depuis l'onglet Actions
+  workflow_dispatch: # Déclenchement manuel en 1 clic depuis l'onglet Actions
 
-# Permissions requises pour téléverser les artefacts et créer une Release GitHub
 permissions:
   contents: write
 
@@ -23,57 +22,64 @@ jobs:
       - name: 2. Configurer Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 3. Configurer Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      # Mise à niveau vers setup-java@v5 (résout l'erreur de dépréciation de v4)
       - name: 4. Configurer Java 17 (JDK Temurin)
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      # Le runner ubuntu-latest inclut nativement l'Android SDK dans $ANDROID_HOME
-      - name: 5. Valider les licences Android SDK
+      - name: 5. Configurer le cache Gradle officiel
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: android
+
+      - name: 6. Configurer Android SDK & Licences
         run: |
+          mkdir -p android
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" 2>/dev/null || true
 
-      - name: 6. Installer les dépendances avec Bun (utilise bun.lock)
+      - name: 7. Installer les dépendances du projet
         run: bun install
 
-      - name: 7. Compiler l'application web Vite
+      - name: 8. Compiler l'application Web Vite
         run: bun run build
 
-      - name: 8. Synchroniser Capacitor avec le projet Android
+      - name: 9. Synchroniser avec Capacitor Android
         run: |
           if [ ! -d "android" ]; then
-            echo "Dossier android absent, initialisation avec Capacitor..."
-            bunx cap add android
+            echo "Initialisation du dossier android..."
+            npx @capacitor/cli add android
           fi
-          bunx cap sync android
+          npx @capacitor/cli sync android
 
-      - name: 9. Donner les droits d'exécution au Gradle Wrapper
+      - name: 10. Droits d'exécution sur gradlew
         run: chmod +x android/gradlew
 
-      - name: 10. Compiler l'APK Android Debug
+      - name: 11. Compiler l'APK Android (Debug)
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
         run: |
           cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: 11. Mettre en ligne l'APK (Artefact téléchargeable)
+      - name: 12. Téléverser l'APK (Artefact GitHub Actions)
         uses: actions/upload-artifact@v4
         with:
           name: Antares-VPN-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           retention-days: 14
 
-      # Créer une Release GitHub avec l'APK téléchargeable directement
-      - name: 12. Créer une Release GitHub avec l'APK
+      - name: 13. Publier une Release GitHub avec l'APK
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         continue-on-error: true
@@ -84,9 +90,9 @@ jobs:
             ### 🚀 Antares VPN — APK Android Prêt à l'installation
             - **Package ID** : `com.antares.vpn`
             - **Version** : 3.4.0-neon (Build ${{ github.run_number }})
-            - **Protocole** : VLESS-Reality & Hysteria 2
+            - **Moteur** : VLESS-Reality & Hysteria 2 / WireGuard Native TUN
             
-            Téléchargez le fichier `app-debug.apk` ci-dessous directement sur votre smartphone Android.
+            Téléchargez le fichier `app-debug.apk` ci-dessous pour installer l'application sur votre smartphone Android.
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
