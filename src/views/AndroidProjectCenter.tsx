@@ -70,30 +70,34 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: 3. Configurer Java 17 (JDK Temurin)
+      - name: 3. Configurer Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: 4. Configurer Java 17 (JDK Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: 4. Configurer Android SDK
+      - name: 5. Configurer Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: 5. Installer les dépendances npm
-        run: npm install
+      - name: 6. Installer les dépendances avec Bun (utilise bun.lock)
+        run: bun install
 
-      - name: 6. Compiler l'application web Vite
-        run: npm run build
+      - name: 7. Compiler l'application web Vite
+        run: bun run build
 
-      - name: 7. Synchroniser Capacitor avec le projet Android
-        run: npx cap sync android
+      - name: 8. Synchroniser Capacitor avec le projet Android
+        run: bunx cap sync android
 
-      - name: 8. Donner les droits d'exécution au Gradle Wrapper
+      - name: 9. Donner les droits d'exécution au Gradle Wrapper
         run: chmod +x android/gradlew
 
-      - name: 9. Compiler l'APK Android Debug
+      - name: 10. Compiler l'APK Android Debug
         run: |
           cd android
           ./gradlew assembleDebug --stacktrace
