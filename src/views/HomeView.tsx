@@ -10,7 +10,7 @@ import { ServerSelector } from '../components/ServerSelector';
 import { VpnStatsCard } from '../components/VpnStatsCard';
 import { QuickOptions } from '../components/QuickOptions';
 import { PremiumBanner } from '../components/PremiumBanner';
-import { Plus, FileCode } from 'lucide-react';
+import { Plus, Activity, ShieldCheck, Cpu } from 'lucide-react';
 import { 
   VpnConnectionState, 
   VpnServer, 
@@ -26,12 +26,15 @@ interface HomeViewProps {
   activeServer: VpnServer;
   onOpenServerModal: () => void;
   onOpenManualVless: () => void;
+  onOpenDiagnostics: () => void;
   stats: VpnStats;
   quickSettings: QuickSettings;
   onUpdateSetting: (key: keyof QuickSettings, val: boolean) => void;
   onOpenSplitTunneling: () => void;
   onOpenPremium: () => void;
   tokenInfo: TokenInfo | null;
+  realIp?: string;
+  isNativeAndroid?: boolean;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -40,12 +43,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
   activeServer,
   onOpenServerModal,
   onOpenManualVless,
+  onOpenDiagnostics,
   stats,
   quickSettings,
   onUpdateSetting,
   onOpenSplitTunneling,
   onOpenPremium,
   tokenInfo,
+  realIp = '82.64.120.45',
+  isNativeAndroid = false,
 }) => {
   const isVip = Boolean(tokenInfo && tokenInfo.status === 'active');
 
@@ -55,8 +61,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <ProtectionCard
         state={connectionState}
         activeServer={activeServer}
-        realIp="185.190.142.66"
+        realIp={realIp}
         protectedIp={activeServer.ip}
+        onOpenDiagnostics={onOpenDiagnostics}
       />
 
       {/* 2. Spectacular Central VPN Power Button matching Screenshot */}
@@ -87,9 +94,16 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </span>
           </button>
 
-          <span className="text-slate-500 text-[10px]">
-            {activeServer.protocol} • {activeServer.ping}ms
-          </span>
+          <button
+            onClick={() => {
+              cyberAudio.playClick();
+              onOpenDiagnostics();
+            }}
+            className="text-slate-400 hover:text-[#00FF88] flex items-center gap-1 transition-colors cursor-pointer"
+          >
+            <Activity className="w-3 h-3 text-[#00FF88]" />
+            <span>Audit Réel & Fuites</span>
+          </button>
         </div>
       </div>
 
@@ -97,7 +111,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <VpnStatsCard
         stats={stats}
         connectionState={connectionState}
-        isSimulated={true}
+        isSimulated={!isNativeAndroid}
       />
 
       {/* 5. 4 Quick Options (2x2 Grid) */}

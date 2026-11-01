@@ -4,19 +4,24 @@
  */
 
 import React from 'react';
-import { ShieldCheck, ShieldAlert, Loader2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Loader2, AlertTriangle, Activity } from 'lucide-react';
 import { VpnConnectionState, VpnServer } from '../types/vpn';
+import { cyberAudio } from '../utils/audio';
 
 interface ProtectionCardProps {
   state: VpnConnectionState;
   activeServer: VpnServer;
   realIp?: string;
   protectedIp?: string;
+  onOpenDiagnostics?: () => void;
 }
 
 export const ProtectionCard: React.FC<ProtectionCardProps> = ({
   state,
   activeServer,
+  realIp = '82.64.120.45',
+  protectedIp,
+  onOpenDiagnostics,
 }) => {
   const isConnected = state === 'connected';
   const isConnecting = state === 'connecting';
@@ -29,7 +34,7 @@ export const ProtectionCard: React.FC<ProtectionCardProps> = ({
         {/* Left: Shield Icon with green glow */}
         <div className="flex items-center gap-3.5 min-w-0">
           <div 
-            className={`w-11 h-11 flex-shrink-0 flex items-center justify-center cyber-chamfer-sm border ${
+            className={`w-11 h-11 flex-shrink-0 flex items-center justify-center cyber-chamfer-sm border transition-colors ${
               isConnected
                 ? 'bg-[#00FF88]/15 border-[#00FF88] shadow-[0_0_15px_rgba(0,255,136,0.5)]'
                 : isConnecting
@@ -74,15 +79,30 @@ export const ProtectionCard: React.FC<ProtectionCardProps> = ({
 
             <p className="text-xs text-slate-300 font-rajdhani font-medium tracking-wide mt-0.5 truncate">
               {isConnected
-                ? 'Naviguez en toute sécurité'
+                ? `Tunnel actif • IP: ${protectedIp || activeServer.ip}`
                 : isConnecting
                 ? `Échange de clés avec ${activeServer.name}`
                 : isError
                 ? 'Serveur inaccessible ou clé invalide'
-                : 'Activez le VPN pour chiffrer vos données'}
+                : `IP réelle visible: ${realIp}`}
             </p>
           </div>
         </div>
+
+        {/* Right: Quick Real Audit button */}
+        {onOpenDiagnostics && (
+          <button
+            onClick={() => {
+              cyberAudio.playClick();
+              onOpenDiagnostics();
+            }}
+            title="Tester l'IP réelle et les fuites DNS"
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#00E5FF]/10 hover:bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/30 text-[11px] font-mono-tech transition-all hover:scale-105 active:scale-95"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Audit Réseau</span>
+          </button>
+        )}
       </div>
     </div>
   );

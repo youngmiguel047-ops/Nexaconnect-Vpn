@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { X, Network, Search, Check, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Network, Search, Check, Shield, Plus, RefreshCw, Smartphone } from 'lucide-react';
 import { AppProfile } from '../types/vpn';
+import { realVpn } from '../services/realVpnEngine';
 import { cyberAudio } from '../utils/audio';
 
 interface SplitTunnelingModalProps {
@@ -13,6 +14,7 @@ interface SplitTunnelingModalProps {
   onClose: () => void;
   apps: AppProfile[];
   onToggleAppBypass: (packageName: string) => void;
+  onAddCustomApp?: (app: AppProfile) => void;
 }
 
 export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
@@ -20,10 +22,47 @@ export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
   onClose,
   apps,
   onToggleAppBypass,
+  onAddCustomApp,
 }) => {
   const [search, setSearch] = useState('');
+  const [customPackage, setCustomPackage] = useState('');
+  const [loadingNative, setLoadingNative] = useState(false);
+  const isNative = realVpn.isNativeEnvironment();
 
   if (!isOpen) return null;
+
+  const handleScanNativeApps = async () => {
+    setLoadingNative(true);
+    cyberAudio.playClick();
+    try {
+      const nativeApps = await realVpn.getRealInstalledApps();
+      if (nativeApps.length > 0 && onAddCustomApp) {
+        nativeApps.forEach((na) => {
+          if (!apps.some((a) => a.packageName === na.packageName)) {
+            onAddCustomApp(na);
+          }
+        });
+      }
+    } finally {
+      setLoadingNative(false);
+    }
+  };
+
+  const handleAddCustom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customPackage.trim() || !onAddCustomApp) return;
+
+    const trimmed = customPackage.trim().toLowerCase();
+    const newApp: AppProfile = {
+      packageName: trimmed,
+      appName: trimmed.split('.').pop() || trimmed,
+      iconType: '📦',
+      isBypassed: true,
+    };
+    onAddCustomApp(newApp);
+    setCustomPackage('');
+    cyberAudio.playToggle();
+  };
 
   const filtered = apps.filter(
     (a) =>
@@ -42,10 +81,10 @@ export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
             </div>
             <div>
               <h3 className="font-orbitron font-bold text-base text-white tracking-wide">
-                Split Tunneling Android
+                Split Tunneling Réel (Android)
               </h3>
               <p className="text-xs text-slate-400 font-rajdhani">
-                Sélectionnez les applications qui contournent le tunnel chiffré
+                Routage par application via Builder.addDisallowedApplication
               </p>
             </div>
           </div>
@@ -61,22 +100,51 @@ export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-3 bg-[#080518] border-b border-slate-800">
+        {/* Native scanner & search */}
+        <div className="p-3 bg-[#080518] border-b border-slate-800 space-y-2">
+          {isNative && (
+            <button
+              onClick={handleScanNativeApps}
+              disabled={loadingNative}
+              className="w-full py-1.5 px-3 rounded-lg bg-[#00E5FF]/15 border border-[#00E5FF]/30 text-[#00E5FF] text-xs font-mono-tech flex items-center justify-center gap-2 hover:bg-[#00E5FF]/25 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingNative ? 'animate-spin' : ''}`} />
+              {loadingNative ? 'Chargement des paquets système...' : 'Scanner les applications réelles du téléphone'}
+            </button>
+          )}
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Filtrer les applications installées..."
+              placeholder="Filtrer les applications par nom ou package..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-lg bg-black/60 border border-slate-700 focus:border-[#FF00E5] focus:outline-none text-xs text-white font-rajdhani"
             />
           </div>
+
+          {/* Add custom package */}
+          <form onSubmit={handleAddCustom} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Ajouter un package (ex: com.bank.app)..."
+              value={customPackage}
+              onChange={(e) => setCustomPackage(e.target.value)}
+              className="flex-1 px-3 py-1.5 rounded-lg bg-black/40 border border-slate-800 focus:border-[#00E5FF] focus:outline-none text-xs text-white font-mono"
+            />
+            <button
+              type="submit"
+              className="px-3 py-1.5 rounded-lg bg-[#FF00E5]/20 hover:bg-[#FF00E5]/30 text-[#FF00E5] border border-[#FF00E5]/40 text-xs font-mono-tech flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Ajouter
+            </button>
+          </form>
         </div>
 
         {/* App List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[380px]">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[380px] no-scrollbar">
           {filtered.map((app) => {
             const isProtected = !app.isBypassed;
             return (
@@ -114,7 +182,7 @@ export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
                         : 'bg-amber-400/15 text-amber-400'
                     }`}
                   >
-                    {isProtected ? 'VPN Protégé' : 'Bypass Direct'}
+                    {isProtected ? 'VPN Chiffré' : 'Bypass Direct'}
                   </span>
 
                   <div
@@ -136,7 +204,7 @@ export const SplitTunnelingModal: React.FC<SplitTunnelingModalProps> = ({
         <div className="p-3 bg-[#060310] border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-1.5 text-[#00FF88]">
             <Shield className="w-3.5 h-3.5" />
-            <span>{apps.filter((a) => !a.isBypassed).length} apps protégées par le tunnel</span>
+            <span>{apps.filter((a) => !a.isBypassed).length} apps protégées • {apps.filter((a) => a.isBypassed).length} bypass</span>
           </div>
 
           <button

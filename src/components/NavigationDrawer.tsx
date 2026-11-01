@@ -15,7 +15,8 @@ import {
   Globe, 
   Activity, 
   Settings, 
-  Plus
+  Plus,
+  Radio
 } from 'lucide-react';
 import { TokenInfo } from '../types/vpn';
 import { cyberAudio } from '../utils/audio';
@@ -30,6 +31,7 @@ interface NavigationDrawerProps {
   onOpenToken: () => void;
   onOpenPremium: () => void;
   onOpenAndroidCenter: () => void;
+  onOpenDiagnostics?: () => void;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
@@ -42,6 +44,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenToken,
   onOpenPremium,
   onOpenAndroidCenter,
+  onOpenDiagnostics,
 }) => {
   if (!isOpen) return null;
 
@@ -69,7 +72,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 </span>
                 <span className="text-[10px] font-mono-tech text-[#00FF88] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00FF88] animate-pulse" />
-                  Moteur sing-box v1.10+
+                  Moteur VpnService & DoH
                 </span>
               </div>
             </div>
@@ -96,7 +99,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <p className="text-[10px] font-mono-tech text-slate-400">
                   {isVip
                     ? `Jusqu'au ${new Date(tokenInfo.expiresAt).toLocaleDateString('fr-FR')}`
-                    : 'Vitesse standard limitée'}
+                    : 'Vitesse standard'}
                 </p>
               </div>
             </div>
@@ -151,6 +154,21 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               <span>Télémétrie Graph</span>
             </button>
 
+            {/* Real Diagnostics */}
+            {onOpenDiagnostics && (
+              <button
+                onClick={() => {
+                  cyberAudio.playClick();
+                  onClose();
+                  onOpenDiagnostics();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#00FF88]/15 border border-[#00FF88]/40 text-[#00FF88] hover:bg-[#00FF88]/25 transition-colors shadow-[0_0_12px_rgba(0,255,136,0.2)]"
+              >
+                <Radio className="w-4 h-4 stroke-[2.5]" />
+                <span>Audit Réseau Réel & Fuites</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 cyberAudio.playClick();
@@ -176,9 +194,9 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 onClose();
                 onOpenManualVless();
               }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#00FF88]/15 border border-[#00FF88]/40 text-[#00FF88] hover:bg-[#00FF88]/25 transition-colors shadow-[0_0_12px_rgba(0,255,136,0.2)]"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-200 hover:text-white hover:bg-[#00FF88]/10 transition-colors"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Plus className="w-4 h-4 text-[#00FF88]" />
               <span>Ajouter VLESS Manuel (.atrs)</span>
             </button>
 
