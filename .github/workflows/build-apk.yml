@@ -7,6 +7,10 @@ on:
     branches: [ main, master ]
   workflow_dispatch: # Permet de déclencher la compilation manuellement en 1 clic sur GitHub
 
+# Permissions requises pour téléverser les artefacts et créer une Release GitHub
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Antares VPN Debug APK
@@ -16,7 +20,7 @@ jobs:
       - name: 1. Cloner le dépôt
         uses: actions/checkout@v4
 
-      - name: 2. Configurer Node.js 20
+      - name: 2. Configurer Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -26,14 +30,18 @@ jobs:
         with:
           bun-version: latest
 
+      # Mise à niveau vers setup-java@v5 (résout l'avertissement de dépréciation de v4)
       - name: 4. Configurer Java 17 (JDK Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      - name: 5. Configurer Android SDK
-        uses: android-actions/setup-android@v3
+      # Le runner ubuntu-latest inclut nativement l'Android SDK dans $ANDROID_HOME
+      - name: 5. Valider les licences Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
       - name: 6. Installer les dépendances avec Bun (utilise bun.lock)
         run: bun install
@@ -42,7 +50,12 @@ jobs:
         run: bun run build
 
       - name: 8. Synchroniser Capacitor avec le projet Android
-        run: bunx cap sync android
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Dossier android absent, initialisation avec Capacitor..."
+            bunx cap add android
+          fi
+          bunx cap sync android
 
       - name: 9. Donner les droits d'exécution au Gradle Wrapper
         run: chmod +x android/gradlew
@@ -50,7 +63,7 @@ jobs:
       - name: 10. Compiler l'APK Android Debug
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 11. Mettre en ligne l'APK (Artefact téléchargeable)
         uses: actions/upload-artifact@v4
@@ -59,10 +72,11 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      # Créer une Release GitHub si déclenchement manuel ou tag
-      - name: 12. Créer une Release GitHub avec l'APK téléchargeable sur mobile
+      # Créer une Release GitHub téléchargeable directement sur smartphone
+      - name: 12. Créer une Release GitHub avec l'APK
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
+        continue-on-error: true
         with:
           tag_name: v3.4.0-${{ github.run_number }}
           name: Antares VPN v3.4.0 (Build ${{ github.run_number }})
