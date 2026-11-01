@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch: # Permet de déclencher la compilation manuellement en 1 clic sur GitHub
+  workflow_dispatch: # Permet de relancer la compilation en 1 clic depuis l'onglet Actions
 
 # Permissions requises pour téléverser les artefacts et créer une Release GitHub
 permissions:
@@ -30,7 +30,7 @@ jobs:
         with:
           bun-version: latest
 
-      # Mise à niveau vers setup-java@v5 (résout l'avertissement de dépréciation de v4)
+      # Mise à niveau vers setup-java@v5 (résout l'erreur de dépréciation de v4)
       - name: 4. Configurer Java 17 (JDK Temurin)
         uses: actions/setup-java@v5
         with:
@@ -72,7 +72,7 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      # Créer une Release GitHub téléchargeable directement sur smartphone
+      # Créer une Release GitHub avec l'APK téléchargeable directement
       - name: 12. Créer une Release GitHub avec l'APK
         if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -86,7 +86,7 @@ jobs:
             - **Version** : 3.4.0-neon (Build ${{ github.run_number }})
             - **Protocole** : VLESS-Reality & Hysteria 2
             
-            Téléchargez le fichier `app-debug.apk` ci-dessous directement sur votre smartphone Android pour l'installer.
+            Téléchargez le fichier `app-debug.apk` ci-dessous directement sur votre smartphone Android.
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
