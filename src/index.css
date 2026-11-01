@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer utilities {
+  .font-orbitron {
+    font-family: 'Orbitron', monospace, sans-serif;
+  }
+  .font-rajdhani {
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .font-mono-tech {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .glow-cyan {
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.45), 0 0 30px rgba(0, 229, 255, 0.2);
+  }
+  .glow-cyan-lg {
+    box-shadow: 0 0 25px rgba(0, 229, 255, 0.6), 0 0 50px rgba(0, 229, 255, 0.35);
+  }
+  .glow-green {
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5), 0 0 35px rgba(0, 255, 136, 0.25);
+  }
+  .glow-green-lg {
+    box-shadow: 0 0 25px rgba(0, 255, 136, 0.7), 0 0 55px rgba(0, 255, 136, 0.35);
+  }
+  .glow-purple {
+    box-shadow: 0 0 18px rgba(139, 0, 255, 0.45), 0 0 36px rgba(139, 0, 255, 0.25);
+  }
+  .glow-magenta {
+    box-shadow: 0 0 18px rgba(255, 0, 229, 0.45), 0 0 36px rgba(255, 0, 229, 0.25);
+  }
+  .glow-red {
+    box-shadow: 0 0 18px rgba(255, 49, 85, 0.5), 0 0 36px rgba(255, 49, 85, 0.25);
+  }
+
+  .text-glow-cyan {
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.7), 0 0 20px rgba(0, 229, 255, 0.4);
+  }
+  .text-glow-green {
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.8), 0 0 20px rgba(0, 255, 136, 0.45);
+  }
+  .text-glow-purple {
+    text-shadow: 0 0 8px rgba(139, 0, 255, 0.8), 0 0 20px rgba(139, 0, 255, 0.4);
+  }
+  .text-glow-magenta {
+    text-shadow: 0 0 8px rgba(255, 0, 229, 0.8), 0 0 20px rgba(255, 0, 229, 0.4);
+  }
+  .text-glow-red {
+    text-shadow: 0 0 8px rgba(255, 49, 85, 0.8), 0 0 20px rgba(255, 49, 85, 0.4);
+  }
+
+  .cyber-glass {
+    background: rgba(8, 6, 20, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 229, 255, 0.18);
+  }
+  .cyber-glass-purple {
+    background: rgba(14, 8, 28, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(139, 0, 255, 0.25);
+  }
+
+  .glow-yellow {
+    box-shadow: 0 0 16px rgba(255, 230, 0, 0.5), 0 0 32px rgba(255, 230, 0, 0.25);
+  }
+  .text-glow-yellow {
+    text-shadow: 0 0 8px rgba(255, 230, 0, 0.8), 0 0 20px rgba(255, 230, 0, 0.4);
+  }
+
+  .cyber-cut {
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+  .cyber-cut-lg {
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  }
+  .cyber-chamfer-sm {
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  }
+  .cyber-chamfer-md {
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+  }
+  .cyber-chamfer-lg {
+    clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 20px, 100% calc(100% - 20px), calc(100% - 20px) 100%, 20px 100%, 0 calc(100% - 20px), 0 20px);
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(3, 2, 10, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.6);
+}
+
+@keyframes glitch-anim {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); filter: hue-rotate(90deg); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); filter: hue-rotate(180deg); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
+.animate-glitch {
+  animation: glitch-anim 0.3s ease-in-out infinite;
+}
+
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-reverse-slow {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+.animate-rotate-slow {
+  animation: rotate-slow 24s linear infinite;
+}
+
+.animate-rotate-fast {
+  animation: rotate-slow 4s linear infinite;
+}
+
+.animate-rotate-reverse {
+  animation: rotate-reverse-slow 16s linear infinite;
+}

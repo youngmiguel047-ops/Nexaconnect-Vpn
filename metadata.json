@@ -1,0 +1,6 @@
+{
+  "name": "Antares VPN",
+  "description": "Application Android VPN futuriste Neon Glitch Cyberpunk avec moteur sing-box, import .atrs, activation token et interface immersive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
