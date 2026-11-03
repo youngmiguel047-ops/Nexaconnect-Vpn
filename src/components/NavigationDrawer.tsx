@@ -30,6 +30,7 @@ interface NavigationDrawerProps {
   onNavigateTab: (tab: 'home' | 'stats' | 'servers' | 'settings') => void;
   onOpenAtrs: () => void;
   onOpenManualVless: () => void;
+  onOpenAtrsManager?: () => void;
   onOpenToken: () => void;
   onOpenPremium: () => void;
   onOpenAndroidCenter: () => void;
@@ -44,6 +45,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onNavigateTab,
   onOpenAtrs,
   onOpenManualVless,
+  onOpenAtrsManager,
   onOpenToken,
   onOpenPremium,
   onOpenAndroidCenter,
@@ -229,6 +231,26 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               <Plus className="w-4 h-4 text-[#00FF88]" />
               <span>Ajouter VLESS Manuel (.atrs)</span>
             </button>
+
+            {/* Mes configurations .ATRS */}
+            {onOpenAtrsManager && (
+              <button
+                onClick={() => {
+                  cyberAudio.playClick();
+                  onClose();
+                  onOpenAtrsManager();
+                }}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#FF00E5]/10 border border-[#FF00E5]/30 text-[#FF00E5] hover:bg-[#FF00E5]/20 transition-all shadow-[0_0_10px_rgba(255,0,229,0.2)]"
+              >
+                <div className="flex items-center gap-3">
+                  <FileCode className="w-4 h-4 text-[#FF00E5]" />
+                  <span>Mes configurations ATRS</span>
+                </div>
+                <span className="text-[9px] font-mono-tech px-1.5 py-0.5 rounded bg-[#FF00E5]/20 text-[#FF00E5] font-bold">
+                  .ATRS
+                </span>
+              </button>
+            )}
 
             <button
               onClick={() => {

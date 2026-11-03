@@ -39,6 +39,7 @@ interface SettingsViewProps {
   onChangeDns: (dns: string) => void;
   tokenInfo: TokenInfo | null;
   onOpenAtrs: () => void;
+  onOpenAtrsManager?: () => void;
   onOpenToken: () => void;
   onOpenSplitTunneling: () => void;
   onOpenAndroidCenter: () => void;
@@ -59,6 +60,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onChangeDns,
   tokenInfo,
   onOpenAtrs,
+  onOpenAtrsManager,
   onOpenToken,
   onOpenSplitTunneling,
   onOpenAndroidCenter,
@@ -261,8 +263,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* 3. Configuration & Token Actions */}
       <div className="p-4 rounded-xl bg-[#080518] border border-slate-800 space-y-2.5">
         <span className="text-[10px] font-mono-tech uppercase text-slate-400">
-          Licence & Profils
+          Licence & Profils .ATRS
         </span>
+
+        {onOpenAtrsManager && (
+          <button
+            onClick={() => {
+              cyberAudio.playClick();
+              onOpenAtrsManager();
+            }}
+            className="w-full p-2.5 rounded-lg bg-[#FF00E5]/15 border border-[#FF00E5]/40 hover:border-[#FF00E5] flex items-center justify-between text-xs font-orbitron font-bold text-white transition-all shadow-[0_0_12px_rgba(255,0,229,0.25)]"
+          >
+            <div className="flex items-center gap-2">
+              <FileCode className="w-4 h-4 text-[#FF00E5]" />
+              <span className="text-[#FF00E5]">Mes configurations ATRS (.ATRS)</span>
+            </div>
+            <span className="text-[10px] font-mono-tech px-2 py-0.5 rounded bg-[#FF00E5]/30 text-white font-bold">
+              GÉRER
+            </span>
+          </button>
+        )}
 
         <button
           onClick={() => {
@@ -273,7 +293,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         >
           <div className="flex items-center gap-2">
             <FileCode className="w-4 h-4 text-[#00E5FF]" />
-            <span>Gestion des fichiers .atrs</span>
+            <span>Import / Export direct .atrs</span>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>

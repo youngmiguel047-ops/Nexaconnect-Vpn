@@ -5,8 +5,15 @@
 
 export type VpnConnectionState = 
   | 'disconnected'
+  | 'initializing'
   | 'connecting'
+  | 'tls_handshake'
+  | 'websocket_handshake'
+  | 'vless_authentication'
+  | 'tun_established'
   | 'connected'
+  | 'no_traffic'
+  | 'connection_error'
   | 'disconnecting'
   | 'error';
 
@@ -89,6 +96,12 @@ export interface VpnStats {
   currentIp: string;
   packetLoss: number; // percentage
   cipher: string;
+  // Métriques réelles du tunnel IP et VLESS
+  packetsIn?: number;
+  packetsOut?: number;
+  packetsReturned?: number;
+  statusMessage?: string;
+  diagnosticLogs?: string[];
 }
 
 export interface QuickSettings {
@@ -148,6 +161,55 @@ export interface AtrsConfig {
     keepAlive?: number;
     extraParams?: Record<string, string>;
   };
+}
+
+/**
+ * Format standard de fichier propriétaire Antares VPN (.ATRS)
+ */
+export interface AtrsFileContent {
+  format: 'ATRS';
+  version: number;
+  name: string;
+  protocol: VpnProtocol;
+  createdAt?: string;
+  configuration: {
+    server: string;
+    port: number;
+    host: string; // Header Host (wsHost)
+    sni: string; // Server Name Indication
+    path: string; // WebSocket Path (wsPath)
+    uuid: string; // UUID ou identifiant client
+    transport: TransportType;
+    security: SecurityType;
+    fingerprint?: string;
+    mux?: boolean;
+    flow?: string;
+    dns?: string;
+    allowInsecure?: boolean;
+    alpn?: string;
+    publicKey?: string;
+    shortId?: string;
+  };
+  metadata?: {
+    author?: string;
+    description?: string;
+    exportSource?: string;
+    tags?: string[];
+  };
+}
+
+/**
+ * Profil ATRS sauvegardé dans la gestion locale
+ */
+export interface SavedAtrsProfile {
+  id: string;
+  name: string;
+  fileName: string;
+  createdAt: string;
+  updatedAt: string;
+  server: VpnServer;
+  fileContent: AtrsFileContent;
+  isActive?: boolean;
 }
 
 export interface TokenInfo {

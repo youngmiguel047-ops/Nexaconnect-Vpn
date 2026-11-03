@@ -14,21 +14,16 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
 
 /**
  * AntaresVpnService
- * Service Android natif VpnService créant une interface TUN chiffrée
- * et routant le trafic réseau à travers le tunnel Antares VPN.
- * Compatible Android 8.0 jusqu'à Android 16 (API 26-36).
+ * Service Android natif VpnService orchestrant le moteur VlessTunnelEngine,
+ * créant l'interface TUN et publiant l'état réel et la télémétrie réseau.
  */
-public class AntaresVpnService extends VpnService implements Runnable {
+public class AntaresVpnService extends VpnService {
 
     private static final String TAG = "AntaresVpnService";
     public static final String ACTION_CONNECT = "com.antares.vpn.CONNECT";
@@ -39,39 +34,49 @@ public class AntaresVpnService extends VpnService implements Runnable {
     private static final int NOTIFICATION_ID = 1337;
 
     private static AntaresVpnService instance;
-    private static boolean running = false;
+    private static VlessTunnelEngine engineInstance;
+
     private static String activeServerName = "Auto (Cyber Node)";
     private static String activeServerIp = "185.190.142.66";
     private static int activeServerPort = 443;
-    private static String activeProtocol = "VLESS-Reality";
-    private static long connectionStartTime = 0;
-
-    private static final AtomicLong totalBytesIn = new AtomicLong(0);
-    private static final AtomicLong totalBytesOut = new AtomicLong(0);
+    private static String activeProtocol = "VLESS";
 
     private ParcelFileDescriptor vpnInterface = null;
-    private Thread tunnelThread = null;
-    private final AtomicBoolean isTunnelRunning = new AtomicBoolean(false);
-
-    public static boolean isRunning() {
-        return running;
-    }
 
     public static AntaresVpnService getInstance() {
         return instance;
     }
 
+    public static boolean isRunning() {
+        return engineInstance != null && engineInstance.isRunning();
+    }
+
+    public static String getCurrentEngineState() {
+        return engineInstance != null ? engineInstance.getCurrentState() : "DISCONNECTED";
+    }
+
     public static long getBytesIn() {
-        return totalBytesIn.get();
+        return engineInstance != null ? engineInstance.getBytesIn() : 0;
     }
 
     public static long getBytesOut() {
-        return totalBytesOut.get();
+        return engineInstance != null ? engineInstance.getBytesOut() : 0;
+    }
+
+    public static long getPacketsIn() {
+        return engineInstance != null ? engineInstance.getPacketsIn() : 0;
+    }
+
+    public static long getPacketsOut() {
+        return engineInstance != null ? engineInstance.getPacketsOut() : 0;
+    }
+
+    public static long getPacketsReturned() {
+        return engineInstance != null ? engineInstance.getPacketsReturned() : 0;
     }
 
     public static long getDurationSeconds() {
-        if (!running || connectionStartTime == 0) return 0;
-        return (System.currentTimeMillis() - connectionStartTime) / 1000;
+        return engineInstance != null ? engineInstance.getDurationSeconds() : 0;
     }
 
     public static String getActiveServerName() {
@@ -80,6 +85,18 @@ public class AntaresVpnService extends VpnService implements Runnable {
 
     public static String getActiveServerIp() {
         return activeServerIp;
+    }
+
+    public static int getActiveServerPort() {
+        return activeServerPort;
+    }
+
+    public static String getLastErrorMessage() {
+        return engineInstance != null ? engineInstance.getLastErrorMessage() : "";
+    }
+
+    public static List<String> getDiagnosticLogs() {
+        return engineInstance != null ? engineInstance.getDiagnosticLogs() : new ArrayList<>();
     }
 
     @Override
@@ -99,10 +116,10 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 disconnectVpn();
                 return START_NOT_STICKY;
             } else if (ACTION_CONNECT.equals(action)) {
-                activeServerName = intent.getStringExtra("server_name") != null ? intent.getStringExtra("server_name") : "Antares VLESS Tokyo Reality";
+                activeServerName = intent.getStringExtra("server_name") != null ? intent.getStringExtra("server_name") : "VLESS Server";
                 activeServerIp = intent.getStringExtra("server_ip") != null ? intent.getStringExtra("server_ip") : "185.190.142.66";
                 activeServerPort = intent.getIntExtra("server_port", 443);
-                activeProtocol = intent.getStringExtra("protocol") != null ? intent.getStringExtra("protocol") : "VLESS-Reality";
+                activeProtocol = intent.getStringExtra("protocol") != null ? intent.getStringExtra("protocol") : "VLESS";
                 String dnsServer = intent.getStringExtra("dns") != null ? intent.getStringExtra("dns") : "1.1.1.1";
                 String uuid = intent.getStringExtra("uuid");
                 String transport = intent.getStringExtra("transport");
@@ -111,21 +128,28 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 String sni = intent.getStringExtra("sni");
                 ArrayList<String> bypassPackages = intent.getStringArrayListExtra("bypass_packages");
 
-                Log.i(TAG, "Configuring VpnService for server: " + activeServerName + " (" + activeServerIp + ":" + activeServerPort + ") transport=" + transport + " path=" + wsPath + " host=" + wsHost + " sni=" + sni + " uuid=" + (uuid != null && uuid.length() > 4 ? uuid.substring(0, 3) + "..." : "***"));
+                // Démarrage immédiat en premier plan
+                startForegroundSafe(buildForegroundNotification("Initialisation de la connexion VLESS..."));
 
-                // CRITICAL: Call startForeground immediately to avoid ForegroundServiceDidNotStartInTimeException
-                startForegroundSafe(buildForegroundNotification("Établissement du tunnel sécurisé..."));
-
-                connectVpn(dnsServer, bypassPackages);
+                connectVpn(
+                        activeServerName,
+                        activeServerIp,
+                        activeServerPort,
+                        activeProtocol,
+                        dnsServer,
+                        uuid,
+                        transport,
+                        wsPath,
+                        wsHost,
+                        sni,
+                        bypassPackages
+                );
                 return START_STICKY;
             }
         }
         return START_NOT_STICKY;
     }
 
-    /**
-     * Safe startForeground call handling Android 14+ specialUse foregroundServiceType requirements
-     */
     private void startForegroundSafe(Notification notification) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -134,23 +158,32 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 startForeground(NOTIFICATION_ID, notification);
             }
         } catch (Exception e) {
-            Log.w(TAG, "Fallback startForeground: " + e.getMessage());
             try {
                 startForeground(NOTIFICATION_ID, notification);
-            } catch (Exception fatal) {
-                Log.e(TAG, "Unable to post foreground notification", fatal);
-            }
+            } catch (Exception ignored) {}
         }
     }
 
-    private void connectVpn(String dns, ArrayList<String> bypassPackages) {
-        if (running) {
+    private void connectVpn(
+            String serverName,
+            String serverIp,
+            int serverPort,
+            String protocol,
+            String dnsServer,
+            String uuid,
+            String transport,
+            String wsPath,
+            String wsHost,
+            String sni,
+            ArrayList<String> bypassPackages
+    ) {
+        if (engineInstance != null && engineInstance.isRunning()) {
             disconnectVpn();
         }
 
         try {
             Builder builder = new Builder();
-            builder.setSession("Antares VPN - " + activeServerName);
+            builder.setSession("Antares VPN - " + serverName);
             builder.setMtu(1420);
 
             // Adresses IP virtuelles du tunnel privé
@@ -161,7 +194,7 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 Log.w(TAG, "Erreur addAddress tunnel:", e);
             }
 
-            // Routage global du trafic à travers le tunnel
+            // Routage global IPv4 et IPv6 vers le TUN
             try {
                 builder.addRoute("0.0.0.0", 0);
                 builder.addRoute("::", 0);
@@ -169,11 +202,11 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 Log.w(TAG, "Erreur addRoute tunnel:", e);
             }
 
-            // Serveurs DNS sécurisés anti-fuite
+            // Serveurs DNS sécurisés
             boolean dnsSet = false;
-            if (dns != null && !dns.trim().isEmpty() && !dns.startsWith("http")) {
+            if (dnsServer != null && !dnsServer.trim().isEmpty() && !dnsServer.startsWith("http")) {
                 try {
-                    builder.addDnsServer(dns.trim());
+                    builder.addDnsServer(dnsServer.trim());
                     dnsSet = true;
                 } catch (Exception ignored) {}
             }
@@ -184,75 +217,78 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 } catch (Exception ignored) {}
             }
 
-            // Split Tunneling (Applications contournant le VPN)
+            // Applications exclues (Split Tunneling)
             if (bypassPackages != null && !bypassPackages.isEmpty()) {
                 PackageManager pm = getPackageManager();
                 for (String pkg : bypassPackages) {
                     try {
                         pm.getPackageInfo(pkg, 0);
                         builder.addDisallowedApplication(pkg);
-                        Log.i(TAG, "Split-tunneling: package contourne -> " + pkg);
                     } catch (PackageManager.NameNotFoundException ignored) {}
                 }
             }
 
             builder.setBlocking(false);
 
-            // Établissement de l'interface réseau TUN
+            // Création de l'interface TUN
             vpnInterface = builder.establish();
             if (vpnInterface == null) {
-                Log.e(TAG, "Interface TUN non disponible (autorisation non accordee ou conflit)");
-                broadcastState("error");
+                Log.e(TAG, "Impossible d'établir l'interface TUN (permission révoquée ou conflit)");
+                broadcastState("CONNECTION_ERROR", "Autorisation TUN non accordée");
                 updateForegroundNotification("Erreur d'initialisation du tunnel");
                 return;
             }
 
-            running = true;
-            connectionStartTime = System.currentTimeMillis();
-            totalBytesIn.set(0);
-            totalBytesOut.set(0);
+            // Création et lancement du moteur VLESS réel
+            engineInstance = new VlessTunnelEngine(
+                    this,
+                    serverIp,
+                    serverPort,
+                    protocol,
+                    dnsServer,
+                    uuid,
+                    transport,
+                    wsPath,
+                    wsHost,
+                    sni,
+                    (state, message) -> {
+                        broadcastState(state, message);
+                        updateForegroundNotification(state + " • " + message);
+                    }
+            );
 
-            // Update Notification to Connected
-            updateForegroundNotification("Tunnel Chiffré Actif");
-
-            // Lancement du thread du tunnel cryptographique
-            isTunnelRunning.set(true);
-            tunnelThread = new Thread(this, "AntaresTunnelThread");
-            tunnelThread.start();
-
-            broadcastState("connected");
-            Log.i(TAG, "Antares VPN connecte avec succes a " + activeServerName + " (" + activeServerIp + ")");
+            boolean started = engineInstance.start(vpnInterface);
+            if (!started) {
+                disconnectVpn();
+            }
 
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors de l'etablissement du VPN", e);
-            broadcastState("error");
+            Log.e(TAG, "Erreur démarrage VPN", e);
+            broadcastState("CONNECTION_ERROR", e.getMessage() != null ? e.getMessage() : "Échec initialisation");
             disconnectVpn();
         }
     }
 
     public void disconnectVpn() {
-        Log.i(TAG, "Deconnexion d'Antares VPN...");
-        running = false;
-        isTunnelRunning.set(false);
+        Log.i(TAG, "Arrêt du tunnel Antares VPN");
 
-        if (tunnelThread != null) {
-            tunnelThread.interrupt();
-            tunnelThread = null;
+        if (engineInstance != null) {
+            engineInstance.stop();
+            engineInstance = null;
         }
 
         if (vpnInterface != null) {
             try {
                 vpnInterface.close();
-            } catch (IOException e) {
-                Log.e(TAG, "Erreur fermeture interface TUN", e);
-            }
+            } catch (IOException ignored) {}
             vpnInterface = null;
         }
 
         try {
             stopForeground(true);
         } catch (Exception ignored) {}
-        broadcastState("disconnected");
+
+        broadcastState("DISCONNECTED", "VPN Déconnecté");
         stopSelf();
     }
 
@@ -267,45 +303,6 @@ public class AntaresVpnService extends VpnService implements Runnable {
     public void onRevoke() {
         disconnectVpn();
         super.onRevoke();
-    }
-
-    @Override
-    public void run() {
-        if (vpnInterface == null) return;
-
-        FileInputStream in = null;
-        FileOutputStream out = null;
-        byte[] packet = new byte[32768];
-
-        try {
-            in = new FileInputStream(vpnInterface.getFileDescriptor());
-            out = new FileOutputStream(vpnInterface.getFileDescriptor());
-
-            while (isTunnelRunning.get() && vpnInterface != null) {
-                try {
-                    int length = in.read(packet);
-                    if (length > 0) {
-                        totalBytesOut.addAndGet(length);
-                        long simulatedRecv = (long) (length * (1.15 + Math.random() * 0.7));
-                        totalBytesIn.addAndGet(simulatedRecv);
-                    } else {
-                        Thread.sleep(15);
-                    }
-                } catch (IOException io) {
-                    break;
-                }
-            }
-        } catch (InterruptedException ignored) {
-        } catch (Exception e) {
-            Log.w(TAG, "Boucle du tunnel terminee: " + e.getMessage());
-        } finally {
-            if (in != null) {
-                try { in.close(); } catch (IOException ignored) {}
-            }
-            if (out != null) {
-                try { out.close(); } catch (IOException ignored) {}
-            }
-        }
     }
 
     private void createNotificationChannel() {
@@ -348,9 +345,9 @@ public class AntaresVpnService extends VpnService implements Runnable {
 
         NotificationCompat.Builder b = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(getNotificationIcon())
-                .setContentTitle("Antares VPN — Protégé")
-                .setContentText(activeServerName + " • " + activeProtocol + " (" + activeServerIp + ")")
-                .setSubText(subtitle != null ? subtitle : "Tunnel Chiffré Actif")
+                .setContentTitle("Antares VPN — " + activeServerName)
+                .setContentText(activeProtocol + " (" + activeServerIp + ":" + activeServerPort + ")")
+                .setSubText(subtitle != null ? subtitle : "Tunnel Chiffré")
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)
                 .setContentIntent(contentPending);
@@ -371,12 +368,18 @@ public class AntaresVpnService extends VpnService implements Runnable {
         } catch (Exception ignored) {}
     }
 
-    private void broadcastState(String state) {
+    private void broadcastState(String state, String message) {
         try {
             Intent intent = new Intent(ACTION_STATUS_BROADCAST);
             intent.putExtra("state", state);
+            intent.putExtra("message", message);
             intent.putExtra("server_name", activeServerName);
             intent.putExtra("server_ip", activeServerIp);
+            intent.putExtra("bytes_in", getBytesIn());
+            intent.putExtra("bytes_out", getBytesOut());
+            intent.putExtra("packets_in", getPacketsIn());
+            intent.putExtra("packets_out", getPacketsOut());
+            intent.putExtra("packets_returned", getPacketsReturned());
             sendBroadcast(intent);
         } catch (Exception e) {
             Log.w(TAG, "Erreur broadcastState:", e);

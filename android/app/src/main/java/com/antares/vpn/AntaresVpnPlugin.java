@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * AntaresVpnPlugin
- * Plugin Capacitor exposant l'API VPN native Android vers l'interface Web (TypeScript/React).
+ * Plugin Capacitor exposant l'API VPN native Android et la télémétrie VLESS vers React/TypeScript.
  */
 @CapacitorPlugin(name = "AntaresVpn")
 public class AntaresVpnPlugin extends Plugin {
@@ -39,19 +39,31 @@ public class AntaresVpnPlugin extends Plugin {
         super.load();
 
         try {
-            // Réception des broadcasts d'état émis par AntaresVpnService
             statusReceiver = new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (intent != null && AntaresVpnService.ACTION_STATUS_BROADCAST.equals(intent.getAction())) {
                         String state = intent.getStringExtra("state");
+                        String message = intent.getStringExtra("message");
                         String serverName = intent.getStringExtra("server_name");
                         String serverIp = intent.getStringExtra("server_ip");
+                        long bytesIn = intent.getLongExtra("bytes_in", 0);
+                        long bytesOut = intent.getLongExtra("bytes_out", 0);
+                        long packetsIn = intent.getLongExtra("packets_in", 0);
+                        long packetsOut = intent.getLongExtra("packets_out", 0);
+                        long packetsReturned = intent.getLongExtra("packets_returned", 0);
 
                         JSObject data = new JSObject();
-                        data.put("state", state);
-                        data.put("serverName", serverName);
-                        data.put("serverIp", serverIp);
+                        data.put("state", state != null ? state : "DISCONNECTED");
+                        data.put("message", message != null ? message : "");
+                        data.put("serverName", serverName != null ? serverName : "");
+                        data.put("serverIp", serverIp != null ? serverIp : "");
+                        data.put("bytesIn", bytesIn);
+                        data.put("bytesOut", bytesOut);
+                        data.put("packetsIn", packetsIn);
+                        data.put("packetsOut", packetsOut);
+                        data.put("packetsReturned", packetsReturned);
+
                         notifyListeners("vpnStateChange", data);
                     }
                 }
@@ -79,19 +91,13 @@ public class AntaresVpnPlugin extends Plugin {
         super.handleOnDestroy();
     }
 
-    /**
-     * prepare: Vérifie ou demande l'autorisation système Android pour le VPN.
-     * Si l'utilisateur n'a pas encore autorisé Antares VPN, ouvre la boîte de dialogue système.
-     */
     @PluginMethod
     public void prepare(PluginCall call) {
         try {
             Intent intent = VpnService.prepare(getContext());
             if (intent != null) {
-                // L'utilisateur doit accepter la demande VPN système Android
                 startActivityForResult(call, intent, "vpnPermissionResult");
             } else {
-                // Déjà autorisé
                 JSObject ret = new JSObject();
                 ret.put("granted", true);
                 ret.put("message", "Permission VPN accordée");
@@ -120,9 +126,6 @@ public class AntaresVpnPlugin extends Plugin {
         }
     }
 
-    /**
-     * start: Démarre le service VPN natif chiffré
-     */
     @PluginMethod
     public void start(PluginCall call) {
         try {
@@ -135,7 +138,7 @@ public class AntaresVpnPlugin extends Plugin {
             String serverName = call.getString("serverName", "Antares VLESS Tokyo Reality");
             String serverIp = call.getString("serverIp", "185.190.142.66");
             int serverPort = call.getInt("serverPort", 443);
-            String protocol = call.getString("protocol", "VLESS-Reality");
+            String protocol = call.getString("protocol", "VLESS");
             String dns = call.getString("dns", "1.1.1.1");
             String uuid = call.getString("uuid", "@abess237");
             String transport = call.getString("transport", "ws");
@@ -175,7 +178,7 @@ public class AntaresVpnPlugin extends Plugin {
 
             JSObject ret = new JSObject();
             ret.put("success", true);
-            ret.put("state", "connecting");
+            ret.put("state", "CONNECTING");
             call.resolve(ret);
         } catch (Exception e) {
             Log.e(TAG, "Erreur fatale lors du start VPN: " + e.getMessage());
@@ -183,9 +186,6 @@ public class AntaresVpnPlugin extends Plugin {
         }
     }
 
-    /**
-     * stop: Arrête le service VPN natif
-     */
     @PluginMethod
     public void stop(PluginCall call) {
         try {
@@ -195,7 +195,7 @@ public class AntaresVpnPlugin extends Plugin {
 
             JSObject ret = new JSObject();
             ret.put("success", true);
-            ret.put("state", "disconnected");
+            ret.put("state", "DISCONNECTED");
             call.resolve(ret);
         } catch (Exception e) {
             Log.e(TAG, "Erreur stop VPN: " + e.getMessage());
@@ -203,30 +203,39 @@ public class AntaresVpnPlugin extends Plugin {
         }
     }
 
-    /**
-     * getStatus: Récupère l'état courant et la télémétrie du VPN natif
-     */
     @PluginMethod
     public void getStatus(PluginCall call) {
         try {
             boolean isRunning = AntaresVpnService.isRunning();
+            String currentState = AntaresVpnService.getCurrentEngineState();
+
             JSObject ret = new JSObject();
-            ret.put("connected", isRunning);
+            ret.put("connected", isRunning && "CONNECTED".equalsIgnoreCase(currentState));
+            ret.put("state", currentState);
             ret.put("durationSeconds", AntaresVpnService.getDurationSeconds());
             ret.put("bytesIn", AntaresVpnService.getBytesIn());
             ret.put("bytesOut", AntaresVpnService.getBytesOut());
+            ret.put("packetsIn", AntaresVpnService.getPacketsIn());
+            ret.put("packetsOut", AntaresVpnService.getPacketsOut());
+            ret.put("packetsReturned", AntaresVpnService.getPacketsReturned());
             ret.put("serverName", AntaresVpnService.getActiveServerName());
             ret.put("serverIp", AntaresVpnService.getActiveServerIp());
+            ret.put("serverPort", AntaresVpnService.getActiveServerPort());
+            ret.put("lastError", AntaresVpnService.getLastErrorMessage());
+
+            List<String> logs = AntaresVpnService.getDiagnosticLogs();
+            JSArray logsArray = new JSArray();
+            for (String logLine : logs) {
+                logsArray.put(logLine);
+            }
+            ret.put("diagnosticLogs", logsArray);
+
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Erreur getStatus: " + e.getMessage());
         }
     }
 
-    /**
-     * getInstalledApps: Énumère les vraies applications installées sur le smartphone
-     * pour le Split-Tunneling réel
-     */
     @PluginMethod
     public void getInstalledApps(PluginCall call) {
         try {

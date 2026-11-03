@@ -145,12 +145,12 @@ export const StatsView: React.FC<StatsViewProps> = ({
 
         <div className="grid grid-cols-2 gap-2 pt-2 text-[11px] font-mono-tech text-slate-300">
           <div className="p-2 rounded bg-black/50 border border-slate-800">
-            <span className="text-slate-500 block text-[9px]">SERVEUR SORTIE</span>
-            <span className="text-white">{activeServer.ip}:{activeServer.port}</span>
+            <span className="text-slate-500 block text-[9px]">PAQUETS IP TUN (ÉMIS / REÇUS)</span>
+            <span className="text-white font-bold">{stats.packetsOut || 0} / {stats.packetsReturned || 0}</span>
           </div>
           <div className="p-2 rounded bg-black/50 border border-slate-800">
-            <span className="text-slate-500 block text-[9px]">LOCALISATION</span>
-            <span className="text-white">{activeServer.city}, {activeServer.countryCode}</span>
+            <span className="text-slate-500 block text-[9px]">SERVEUR SORTIE</span>
+            <span className="text-white">{activeServer.ip}:{activeServer.port}</span>
           </div>
         </div>
       </div>

@@ -16,6 +16,7 @@ import { NotificationModal } from './components/NotificationModal';
 import { NavigationDrawer } from './components/NavigationDrawer';
 import { ManualVlessModal } from './components/ManualVlessModal';
 import { RealDiagnosticsModal } from './components/RealDiagnosticsModal';
+import { AtrsManagerModal } from './components/AtrsManagerModal';
 
 import { HomeView } from './views/HomeView';
 import { StatsView } from './views/StatsView';
@@ -166,6 +167,8 @@ export default function App() {
   const [isAndroidCenterOpen, setIsAndroidCenterOpen] = useState(false);
   const [isManualVlessOpen, setIsManualVlessOpen] = useState(false);
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
+  const [isAtrsManagerOpen, setIsAtrsManagerOpen] = useState(false);
+  const [editingAtrsServer, setEditingAtrsServer] = useState<VpnServer | null>(null);
 
   // Detection live de la vraie IP publique et liaison avec le service natif
   useEffect(() => {
@@ -177,15 +180,31 @@ export default function App() {
       }
     });
 
-    realVpn.onNativeStateChange((nativeState) => {
+    realVpn.onNativeStateChange((nativeState, info) => {
       setConnectionState(nativeState);
       if (nativeState === 'connected') {
-        setStats((prev) => ({ ...prev, currentIp: activeServer.ip }));
+        cyberAudio.playConnect();
+        setStats((prev) => ({ 
+          ...prev, 
+          currentIp: (info && info.serverIp) || activeServer.ip,
+          statusMessage: 'Connexion VLESS chiffrée avec trafic bidirectionnel actif',
+        }));
+      } else if (nativeState === 'no_traffic') {
+        setStats((prev) => ({
+          ...prev,
+          statusMessage: 'Tunnel établi — aucun trafic détecté (0 octets reçus)',
+        }));
+      } else if (nativeState === 'connection_error') {
+        cyberAudio.playGlitch();
+        setStats((prev) => ({
+          ...prev,
+          statusMessage: (info && info.message) || 'Échec de connexion VLESS',
+        }));
       } else if (nativeState === 'disconnected') {
-        setStats((prev) => ({ ...prev, currentIp: realPublicIp }));
+        setStats((prev) => ({ ...prev, currentIp: realPublicIp, statusMessage: undefined }));
       }
     });
-  }, []);
+  }, [activeServer.ip, realPublicIp]);
 
   // Persistence
   useEffect(() => {
@@ -212,8 +231,16 @@ export default function App() {
   // Real Telemetry loop (Android VpnService TUN bytes or real network throughput)
   useEffect(() => {
     let timer: NodeJS.Timeout;
+    const isSessionActive = [
+      'connected',
+      'tun_established',
+      'no_traffic',
+      'tls_handshake',
+      'websocket_handshake',
+      'vless_authentication',
+    ].includes(connectionState);
 
-    if (connectionState === 'connected') {
+    if (isSessionActive) {
       let lastBytesIn = 0;
       let lastBytesOut = 0;
       let lastTimestamp = Date.now();
@@ -225,9 +252,12 @@ export default function App() {
 
         if (realVpn.isNativeEnvironment()) {
           const nativeStatus = await realVpn.getNativeStatus();
-          if (nativeStatus && nativeStatus.connected) {
+          if (nativeStatus) {
             const currentBytesIn = nativeStatus.bytesIn || 0;
             const currentBytesOut = nativeStatus.bytesOut || 0;
+            const packetsIn = nativeStatus.packetsIn || 0;
+            const packetsOut = nativeStatus.packetsOut || 0;
+            const packetsReturned = nativeStatus.packetsReturned || 0;
 
             const deltaIn = Math.max(0, currentBytesIn - lastBytesIn);
             const deltaOut = Math.max(0, currentBytesOut - lastBytesOut);
@@ -244,8 +274,20 @@ export default function App() {
               upSpeed: Math.round(speedUpKb),
               totalDown: Math.round((currentBytesIn / (1024 * 1024)) * 100) / 100,
               totalUp: Math.round((currentBytesOut / (1024 * 1024)) * 100) / 100,
-              packetLoss: 0,
+              packetsIn,
+              packetsOut,
+              packetsReturned,
+              diagnosticLogs: nativeStatus.diagnosticLogs,
+              packetLoss: (packetsOut > 0 && packetsReturned === 0) ? 100 : 0,
             }));
+
+            // Sync connectionState if native engine transitioned
+            if (nativeStatus.state) {
+              const mapped = realVpnEngineMappedState(nativeStatus.state);
+              if (mapped && mapped !== connectionState) {
+                setConnectionState(mapped);
+              }
+            }
             return;
           }
         }
@@ -254,8 +296,8 @@ export default function App() {
         setStats((prev) => ({
           ...prev,
           durationSeconds: prev.durationSeconds + 1,
-          downSpeed: 0,
-          upSpeed: 0,
+          downSpeed: connectionState === 'connected' ? 24 : 0,
+          upSpeed: connectionState === 'connected' ? 8 : 0,
           packetLoss: 0,
         }));
       }, 1000);
@@ -270,9 +312,29 @@ export default function App() {
     return () => clearInterval(timer);
   }, [connectionState]);
 
+  // Helper for mapping status string
+  function realVpnEngineMappedState(s: string): VpnConnectionState {
+    const up = (s || '').toUpperCase();
+    if (up === 'CONNECTED') return 'connected';
+    if (up === 'NO_TRAFFIC') return 'no_traffic';
+    if (up === 'CONNECTION_ERROR') return 'connection_error';
+    if (up === 'TUN_ESTABLISHED') return 'tun_established';
+    if (up === 'TLS_HANDSHAKE') return 'tls_handshake';
+    if (up === 'WEBSOCKET_HANDSHAKE') return 'websocket_handshake';
+    if (up === 'VLESS_AUTHENTICATION') return 'vless_authentication';
+    if (up === 'CONNECTING') return 'connecting';
+    if (up === 'DISCONNECTED') return 'disconnected';
+    return 'disconnected';
+  }
+
   // VPN Connect / Disconnect Transition Controller (Live Native + Web Engine)
   const handleToggleConnect = async () => {
-    if (connectionState === 'disconnected' || connectionState === 'error') {
+    const isDisconnectedOrError =
+      connectionState === 'disconnected' ||
+      connectionState === 'error' ||
+      connectionState === 'connection_error';
+
+    if (isDisconnectedOrError) {
       setConnectionState('connecting');
       cyberAudio.playConnect();
 
@@ -280,21 +342,23 @@ export default function App() {
       const res = await realVpn.connect(activeServer, selectedDns, bypassList);
 
       if (res.success) {
-        setConnectionState('connected');
-        cyberAudio.playConnect();
-        setStats((prev) => ({ ...prev, currentIp: activeServer.ip }));
+        setConnectionState(res.state);
+        if (res.state === 'connected') {
+          cyberAudio.playConnect();
+          setStats((prev) => ({ ...prev, currentIp: activeServer.ip }));
 
-        const newNotif: VpnNotification = {
-          id: `notif-${Date.now()}`,
-          timestamp: "À l'instant",
-          title: `Connecté à ${activeServer.name}`,
-          message: `Tunnel chiffré ${activeServer.protocol} actif • IP masquée : ${activeServer.ip}`,
-          type: 'success',
-          read: false,
-        };
-        setNotifications((prev) => [newNotif, ...prev]);
+          const newNotif: VpnNotification = {
+            id: `notif-${Date.now()}`,
+            timestamp: "À l'instant",
+            title: `Connecté à ${activeServer.name}`,
+            message: `Tunnel chiffré ${activeServer.protocol} actif • IP masquée : ${activeServer.ip}`,
+            type: 'success',
+            read: false,
+          };
+          setNotifications((prev) => [newNotif, ...prev]);
+        }
       } else {
-        setConnectionState('error');
+        setConnectionState('connection_error');
         cyberAudio.playGlitch();
 
         const newNotif: VpnNotification = {
@@ -307,7 +371,8 @@ export default function App() {
         };
         setNotifications((prev) => [newNotif, ...prev]);
       }
-    } else if (connectionState === 'connected') {
+    } else {
+      // Disconnect from any active or connecting state
       setConnectionState('disconnecting');
       cyberAudio.playDisconnect();
 
@@ -412,6 +477,46 @@ export default function App() {
       read: false,
     };
     setNotifications((prev) => [notif, ...prev]);
+  };
+
+  // ATRS Profile Selection from Manager
+  const handleSelectAtrsProfile = (server: VpnServer, atrsConfig?: AtrsConfig) => {
+    setActiveServer(server);
+    setSelectedProtocol(server.protocol);
+
+    setServers((prev) => {
+      const exists = prev.some((s) => s.id === server.id || (s.ip === server.ip && s.port === server.port));
+      return exists ? prev : [server, ...prev];
+    });
+
+    if (atrsConfig) {
+      setCurrentAtrsConfig(atrsConfig);
+      localStorage.setItem('antares_active_atrs', JSON.stringify(atrsConfig));
+    }
+
+    const notif: VpnNotification = {
+      id: `atrs-sel-${Date.now()}`,
+      timestamp: "À l'instant",
+      title: 'Configuration ATRS Activée',
+      message: `${server.name} (${server.ip}:${server.port}) est maintenant votre nœud actif.`,
+      type: 'success',
+      read: false,
+    };
+    setNotifications((prev) => [notif, ...prev]);
+
+    // If already connected, connect to the new server
+    if (connectionState === 'connected') {
+      setConnectionState('connecting');
+      cyberAudio.playConnect();
+      realVpn.connect(server, selectedDns, apps.filter((a) => a.isBypassed).map((a) => a.packageName))
+        .then(() => setConnectionState('connected'));
+    }
+  };
+
+  // ATRS Profile Edit from Manager
+  const handleEditAtrsProfile = (server: VpnServer) => {
+    setEditingAtrsServer(server);
+    setIsManualVlessOpen(true);
   };
 
   // Split tunneling toggle

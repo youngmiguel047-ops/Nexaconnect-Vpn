@@ -7,6 +7,22 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 import { VpnServer, VpnConnectionState, AppProfile, AtrsConfig } from '../types/vpn';
 
 // Interface native du plugin Android AntaresVpn
+export interface NativeVpnStatus {
+  connected: boolean;
+  state: string;
+  durationSeconds: number;
+  bytesIn: number;
+  bytesOut: number;
+  packetsIn: number;
+  packetsOut: number;
+  packetsReturned: number;
+  serverName: string;
+  serverIp: string;
+  serverPort: number;
+  lastError: string;
+  diagnosticLogs: string[];
+}
+
 export interface NativeAntaresVpnPlugin {
   prepare(): Promise<{ granted: boolean; message: string }>;
   start(options: {
@@ -23,21 +39,44 @@ export interface NativeAntaresVpnPlugin {
     bypassPackages: string[];
   }): Promise<{ success: boolean; state: string }>;
   stop(): Promise<{ success: boolean; state: string }>;
-  getStatus(): Promise<{
-    connected: boolean;
-    durationSeconds: number;
-    bytesIn: number;
-    bytesOut: number;
-    serverName: string;
-    serverIp: string;
-  }>;
+  getStatus(): Promise<NativeVpnStatus>;
   getInstalledApps(): Promise<{
     apps: { packageName: string; appName: string; isSystem: boolean }[];
   }>;
   addListener(
     eventName: 'vpnStateChange',
-    listenerFunc: (info: { state: string; serverName: string; serverIp: string }) => void
+    listenerFunc: (info: {
+      state: string;
+      message?: string;
+      serverName?: string;
+      serverIp?: string;
+      bytesIn?: number;
+      bytesOut?: number;
+      packetsIn?: number;
+      packetsOut?: number;
+      packetsReturned?: number;
+    }) => void
   ): Promise<{ remove: () => Promise<void> }>;
+}
+
+export function mapNativeState(nativeStateStr: string): VpnConnectionState {
+  const s = (nativeStateStr || '').toUpperCase();
+  switch (s) {
+    case 'DISCONNECTED': return 'disconnected';
+    case 'INITIALIZING': return 'initializing';
+    case 'CONNECTING': return 'connecting';
+    case 'TLS_HANDSHAKE': return 'tls_handshake';
+    case 'WEBSOCKET_HANDSHAKE': return 'websocket_handshake';
+    case 'VLESS_AUTHENTICATION': return 'vless_authentication';
+    case 'TUN_ESTABLISHED': return 'tun_established';
+    case 'CONNECTED': return 'connected';
+    case 'NO_TRAFFIC': return 'no_traffic';
+    case 'CONNECTION_ERROR': return 'connection_error';
+    case 'DISCONNECTING': return 'disconnecting';
+    default:
+      if (s.toLowerCase() === 'error') return 'error';
+      return 'disconnected';
+  }
 }
 
 // Enregistrement du plugin Capacitor
@@ -61,15 +100,15 @@ export interface RealNetworkDiagnostics {
 class RealVpnEngine {
   private isNative: boolean;
   private cachedDiagnostics: RealNetworkDiagnostics | null = null;
-  private stateChangeListeners: ((state: VpnConnectionState) => void)[] = [];
+  private stateChangeListeners: ((state: VpnConnectionState, info?: any) => void)[] = [];
 
   constructor() {
     this.isNative = Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('AntaresVpn');
     if (this.isNative) {
       try {
         NativeVpn.addListener('vpnStateChange', (info) => {
-          const mappedState = (info.state as VpnConnectionState) || 'disconnected';
-          this.stateChangeListeners.forEach((fn) => fn(mappedState));
+          const mappedState = mapNativeState(info.state);
+          this.stateChangeListeners.forEach((fn) => fn(mappedState, info));
         });
       } catch (e) {
         console.warn('Erreur attachement listener natif:', e);
@@ -81,7 +120,7 @@ class RealVpnEngine {
     return this.isNative;
   }
 
-  public onNativeStateChange(callback: (state: VpnConnectionState) => void) {
+  public onNativeStateChange(callback: (state: VpnConnectionState, info?: any) => void) {
     this.stateChangeListeners.push(callback);
   }
 
@@ -120,38 +159,38 @@ class RealVpnEngine {
           bypassPackages: bypassApps,
         });
 
+        const initialMappedState = mapNativeState(startResult.state || 'CONNECTING');
         return {
           success: startResult.success,
-          state: 'connected',
+          state: initialMappedState,
         };
       } catch (err: any) {
         console.error('Erreur lancement VPN Android natif:', err);
         return {
           success: false,
-          state: 'error',
+          state: 'connection_error',
           message: err.message || 'Échec d\'initialisation du service VPN Android',
         };
       }
     }
 
-    // Mode Web / Hybride avec simulation active et protection DoH
+    // Mode Web / Démonstration : simulation progressive fidèle du handshake
+    setTimeout(() => this.stateChangeListeners.forEach(fn => fn('tls_handshake')), 350);
+    setTimeout(() => this.stateChangeListeners.forEach(fn => fn('websocket_handshake')), 750);
+    setTimeout(() => this.stateChangeListeners.forEach(fn => fn('vless_authentication')), 1100);
+    setTimeout(() => this.stateChangeListeners.forEach(fn => fn('tun_established')), 1450);
+    setTimeout(() => this.stateChangeListeners.forEach(fn => fn('connected')), 1800);
+
     return {
       success: true,
-      state: 'connected',
+      state: 'connecting',
     };
   }
 
   /**
    * Récupère l'état et la télémétrie réelle du VPN natif Android
    */
-  public async getNativeStatus(): Promise<{
-    connected: boolean;
-    durationSeconds: number;
-    bytesIn: number;
-    bytesOut: number;
-    serverName: string;
-    serverIp: string;
-  } | null> {
+  public async getNativeStatus(): Promise<NativeVpnStatus | null> {
     if (this.isNative) {
       try {
         return await NativeVpn.getStatus();
@@ -172,6 +211,8 @@ class RealVpnEngine {
       } catch (e) {
         console.warn('Erreur arrêt VPN natif:', e);
       }
+    } else {
+      this.stateChangeListeners.forEach(fn => fn('disconnected'));
     }
   }
 

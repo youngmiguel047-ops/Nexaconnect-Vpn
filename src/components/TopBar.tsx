@@ -11,6 +11,7 @@ interface TopBarProps {
   onOpenDrawer: () => void;
   onOpenNotifications: () => void;
   onOpenManualVless: () => void;
+  onOpenAtrsManager?: () => void;
   unreadNotificationsCount?: number;
   isPhoneFrame: boolean;
   onToggleFrame: () => void;
@@ -22,6 +23,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenDrawer,
   onOpenNotifications,
   onOpenManualVless,
+  onOpenAtrsManager,
   unreadNotificationsCount = 2,
   isPhoneFrame,
   onToggleFrame,
@@ -94,10 +96,14 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => {
             cyberAudio.playClick();
-            onOpenManualVless();
+            if (onOpenAtrsManager) {
+              onOpenAtrsManager();
+            } else {
+              onOpenManualVless();
+            }
           }}
-          title="Ajouter manuellement une configuration VLESS (.atrs)"
-          className="p-1.5 rounded-lg border border-[#00E5FF]/40 bg-[#00E5FF]/10 hover:bg-[#00E5FF]/20 text-[#00E5FF] active:scale-95 transition-all flex items-center gap-1 text-[10px] font-orbitron font-bold"
+          title="Mes configurations ATRS (.atrs)"
+          className="p-1.5 rounded-lg border border-[#00E5FF]/40 bg-[#00E5FF]/10 hover:bg-[#00E5FF]/20 text-[#00E5FF] active:scale-95 transition-all flex items-center gap-1 text-[10px] font-orbitron font-bold cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 text-[#00E5FF]" />
           <span className="hidden sm:inline">.ATRS</span>

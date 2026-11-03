@@ -10,7 +10,7 @@ import { ServerSelector } from '../components/ServerSelector';
 import { VpnStatsCard } from '../components/VpnStatsCard';
 import { QuickOptions } from '../components/QuickOptions';
 import { PremiumBanner } from '../components/PremiumBanner';
-import { Plus, Activity, ShieldCheck, Cpu } from 'lucide-react';
+import { Plus, Activity, ShieldCheck, Cpu, FileCode } from 'lucide-react';
 import { 
   VpnConnectionState, 
   VpnServer, 
@@ -28,6 +28,7 @@ interface HomeViewProps {
   onOpenServerModal: () => void;
   onOpenManualVless: () => void;
   onOpenDiagnostics: () => void;
+  onOpenAtrsManager?: () => void;
   stats: VpnStats;
   quickSettings: QuickSettings;
   onUpdateSetting: (key: keyof QuickSettings, val: boolean) => void;
@@ -46,6 +47,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenServerModal,
   onOpenManualVless,
   onOpenDiagnostics,
+  onOpenAtrsManager,
   stats,
   quickSettings,
   onUpdateSetting,
@@ -83,20 +85,35 @@ export const HomeView: React.FC<HomeViewProps> = ({
           onClick={onOpenServerModal}
         />
 
-        {/* Quick VLESS Manual Config shortcut bar */}
-        <div className="flex items-center justify-between px-2 text-[11px] font-mono-tech">
-          <button
-            onClick={() => {
-              cyberAudio.playClick();
-              onOpenManualVless();
-            }}
-            className="text-[#00E5FF] hover:text-white flex items-center gap-1 transition-colors group cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5 text-[#00E5FF] group-hover:rotate-90 transition-transform" />
-            <span className="underline decoration-[#00E5FF]/40 underline-offset-2">
-              Ajouter VLESS manuellement (.atrs)
-            </span>
-          </button>
+        {/* Quick VLESS Manual Config & ATRS manager shortcut bar */}
+        <div className="flex items-center justify-between px-2 text-[11px] font-mono-tech gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                cyberAudio.playClick();
+                onOpenManualVless();
+              }}
+              className="text-[#00E5FF] hover:text-white flex items-center gap-1 transition-colors group cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 text-[#00E5FF] group-hover:rotate-90 transition-transform" />
+              <span className="underline decoration-[#00E5FF]/40 underline-offset-2">
+                Ajouter VLESS
+              </span>
+            </button>
+
+            {onOpenAtrsManager && (
+              <button
+                onClick={() => {
+                  cyberAudio.playClick();
+                  onOpenAtrsManager();
+                }}
+                className="px-2 py-0.5 rounded bg-[#FF00E5]/15 hover:bg-[#FF00E5]/25 border border-[#FF00E5]/40 text-[#FF00E5] flex items-center gap-1 transition-all cursor-pointer font-bold"
+              >
+                <FileCode className="w-3 h-3 text-[#FF00E5]" />
+                <span>Mes configs .ATRS</span>
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => {
@@ -106,7 +123,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="text-slate-400 hover:text-[#00FF88] flex items-center gap-1 transition-colors cursor-pointer"
           >
             <Activity className="w-3 h-3 text-[#00FF88]" />
-            <span>Audit Réel & Fuites</span>
+            <span>Audit Réel</span>
           </button>
         </div>
       </div>

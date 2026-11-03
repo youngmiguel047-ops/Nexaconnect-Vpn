@@ -37,16 +37,50 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
   };
 
   const isConnected = state === 'connected';
-  const isConnecting = state === 'connecting';
-  const isError = state === 'error';
+  const isNoTraffic = state === 'no_traffic';
+  const isConnecting = [
+    'connecting',
+    'initializing',
+    'tls_handshake',
+    'websocket_handshake',
+    'vless_authentication',
+    'tun_established',
+  ].includes(state);
+  const isError = state === 'error' || state === 'connection_error';
+  const isDisconnecting = state === 'disconnecting';
+
+  const getButtonLabel = () => {
+    switch (state) {
+      case 'connected': return 'CONNECTÉ';
+      case 'no_traffic': return 'AUCUN TRAFIC';
+      case 'tls_handshake': return 'TLS HANDSHAKE';
+      case 'websocket_handshake': return 'WEBSOCKET...';
+      case 'vless_authentication': return 'AUTH VLESS...';
+      case 'tun_established': return 'TUN ÉTABLI';
+      case 'connecting':
+      case 'initializing': return 'CONNEXION...';
+      case 'connection_error':
+      case 'error': return 'ÉCHEC CONNEXION';
+      case 'disconnecting': return 'ARRÊT...';
+      default: return 'CONNECTER';
+    }
+  };
+
+  const getButtonColor = () => {
+    if (isConnected) return '#00FF88';
+    if (isNoTraffic) return '#FBBF24';
+    if (isConnecting) return '#00E5FF';
+    if (isError) return '#FF3155';
+    return theme ? theme.primary : '#00E5FF';
+  };
 
   return (
     <div className="relative flex flex-col items-center justify-center my-3 select-none">
       {/* Outer Pulse Halo */}
-      {(isConnected || isConnecting) && (
+      {(isConnected || isConnecting || isNoTraffic) && (
         <div
           className="absolute w-[220px] h-[220px] rounded-full pointer-events-none animate-ping opacity-25"
-          style={{ backgroundColor: isConnected ? '#00FF88' : '#00E5FF' }}
+          style={{ backgroundColor: isConnected ? '#00FF88' : isNoTraffic ? '#FBBF24' : '#00E5FF' }}
         />
       )}
 
@@ -56,6 +90,8 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
         style={{
           backgroundColor: isConnected
             ? 'rgba(0, 255, 136, 0.45)'
+            : isNoTraffic
+            ? 'rgba(251, 191, 36, 0.45)'
             : isConnecting
             ? 'rgba(0, 229, 255, 0.5)'
             : isError
@@ -101,7 +137,7 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
               cy="100"
               r="94"
               fill="none"
-              stroke={isConnected ? '#00FF88' : isConnecting ? '#00E5FF' : isError ? '#FF3155' : (theme?.isMulticolor ? 'url(#cyberMultiGrad)' : (theme ? theme.primary : '#00E5FF'))}
+              stroke={isConnected ? '#00FF88' : isNoTraffic ? '#FBBF24' : isConnecting ? '#00E5FF' : isError ? '#FF3155' : (theme?.isMulticolor ? 'url(#cyberMultiGrad)' : (theme ? theme.primary : '#00E5FF'))}
               strokeWidth="2.5"
               strokeDasharray="45 12 15 12"
               opacity="0.9"
@@ -112,7 +148,7 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
               cy="100"
               r="86"
               fill="none"
-              stroke={isConnected ? '#00E5FF' : (theme?.isMulticolor ? 'url(#cyberMultiGrad2)' : (theme ? theme.secondary : '#8B00FF'))}
+              stroke={isConnected ? '#00FF88' : isNoTraffic ? '#FBBF24' : (theme?.isMulticolor ? 'url(#cyberMultiGrad2)' : (theme ? theme.secondary : '#8B00FF'))}
               strokeWidth="2"
               strokeDasharray="2 10"
               opacity="0.8"
@@ -129,9 +165,11 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
         <div 
           className="absolute inset-2.5 rounded-full border-2 transition-all duration-500" 
           style={{
-            borderColor: isConnected ? '#00FF88' : (theme ? theme.primary : '#0066FF'),
+            borderColor: getButtonColor(),
             boxShadow: isConnected
               ? '0 0 25px rgba(0, 255, 136, 0.6)'
+              : isNoTraffic
+              ? '0 0 25px rgba(251, 191, 36, 0.6)'
               : theme?.isMulticolor
               ? '0 0 25px rgba(0, 229, 255, 0.6), 0 0 45px rgba(255, 0, 229, 0.35)'
               : `0 0 20px ${theme ? theme.glow : 'rgba(0,102,255,0.6)'}`,
@@ -142,10 +180,12 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
         <div
           className="relative w-[140px] h-[140px] sm:w-[155px] sm:h-[155px] rounded-full flex flex-col items-center justify-center border-2 transition-all duration-500 shadow-2xl"
           style={{
-            borderColor: isConnected ? '#00FF88' : isConnecting ? '#00E5FF' : isError ? '#FF3155' : (theme ? theme.primary : '#00E5FF'),
+            borderColor: getButtonColor(),
             background: 'radial-gradient(circle at 50% 40%, rgba(10, 4, 25, 0.95) 0%, rgba(4, 2, 12, 0.98) 100%)',
             boxShadow: isConnected
               ? 'inset 0 0 25px rgba(0, 255, 136, 0.35), 0 0 30px rgba(0, 255, 136, 0.4)'
+              : isNoTraffic
+              ? 'inset 0 0 25px rgba(251, 191, 36, 0.35), 0 0 30px rgba(251, 191, 36, 0.4)'
               : theme?.isMulticolor
               ? 'inset 0 0 25px rgba(0, 229, 255, 0.35), 0 0 30px rgba(255, 0, 229, 0.3)'
               : theme
@@ -158,14 +198,8 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
             <Power
               className="w-10 h-10 sm:w-11 sm:h-11 filter transition-transform duration-300 group-hover:scale-105"
               style={{
-                color: isConnected ? '#00FF88' : isConnecting ? '#00E5FF' : isError ? '#FF3155' : (theme ? theme.primary : '#00E5FF'),
-                filter: isConnected
-                  ? 'drop-shadow(0 0 10px #00FF88)'
-                  : isConnecting
-                  ? 'drop-shadow(0 0 10px #00E5FF)'
-                  : isError
-                  ? 'drop-shadow(0 0 10px #FF3155)'
-                  : `drop-shadow(0 0 10px ${theme ? theme.primary : '#00E5FF'})`,
+                color: getButtonColor(),
+                filter: `drop-shadow(0 0 10px ${getButtonColor()})`,
               }}
               strokeWidth={2.6}
             />
@@ -175,6 +209,8 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
               className={`font-orbitron font-black text-xs sm:text-sm tracking-wider uppercase mt-2 ${
                 isConnected
                   ? 'text-[#00FF88] text-glow-green'
+                  : isNoTraffic
+                  ? 'text-amber-400'
                   : isConnecting
                   ? 'text-[#00E5FF] text-glow-cyan'
                   : isError
@@ -182,17 +218,11 @@ export const VpnPowerButton: React.FC<VpnPowerButtonProps> = ({
                   : ''
               }`}
               style={{
-                color: (!isConnected && !isConnecting && !isError && theme) ? theme.primary : undefined,
-                textShadow: (!isConnected && !isConnecting && !isError && theme) ? `0 0 10px ${theme.glow}` : undefined,
+                color: (!isConnected && !isConnecting && !isNoTraffic && !isError && theme) ? theme.primary : undefined,
+                textShadow: (!isConnected && !isConnecting && !isNoTraffic && !isError && theme) ? `0 0 10px ${theme.glow}` : undefined,
               }}
             >
-              {isConnected
-                ? 'CONNECTÉ'
-                : isConnecting
-                ? 'CONNEXION...'
-                : isError
-                ? 'ÉCHEC DE CONNEXION'
-                : 'CONNECTER'}
+              {getButtonLabel()}
             </span>
           </div>
         </div>

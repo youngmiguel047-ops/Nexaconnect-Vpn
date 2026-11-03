@@ -18,9 +18,11 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
   connectionState,
 }) => {
   const isConnected = connectionState === 'connected';
+  const isNoTraffic = connectionState === 'no_traffic';
+  const hasActiveSession = isConnected || isNoTraffic;
 
   const formatDuration = (seconds: number) => {
-    if (!isConnected || seconds <= 0) return '--:--:--';
+    if (!hasActiveSession || seconds <= 0) return '--:--:--';
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -30,6 +32,7 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
   };
 
   const formatSpeed = (kbps: number) => {
+    if (isNoTraffic) return '0.0 KB/s';
     if (!isConnected) return 'Indisponible';
     if (kbps <= 0) return '0.0 KB/s';
     if (kbps > 1024) {
@@ -39,16 +42,20 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
   };
 
   return (
-    <div className="relative mx-1 p-[1px] bg-gradient-to-r from-[#00E5FF] via-[#8B00FF] to-[#FF00E5] cyber-chamfer-md shadow-[0_0_18px_rgba(139,0,255,0.25)] select-none">
+    <div className={`relative mx-1 p-[1px] bg-gradient-to-r cyber-chamfer-md select-none transition-all ${
+      isNoTraffic 
+        ? 'from-amber-400 via-orange-500 to-amber-600 shadow-[0_0_18px_rgba(251,191,36,0.25)]'
+        : 'from-[#00E5FF] via-[#8B00FF] to-[#FF00E5] shadow-[0_0_18px_rgba(139,0,255,0.25)]'
+    }`}>
       <div className="relative bg-[#070314]/90 backdrop-blur-md px-3 py-3.5 cyber-chamfer-md grid grid-cols-3 divide-x divide-slate-800/80 text-center">
         {/* Col 1: Téléchargement */}
         <div className="flex flex-col items-center justify-center px-1">
-          <ArrowDown className="w-4 h-4 text-[#00E5FF] mb-1" strokeWidth={2.5} />
+          <ArrowDown className={`w-4 h-4 mb-1 ${isNoTraffic ? 'text-amber-400' : 'text-[#00E5FF]'}`} strokeWidth={2.5} />
           <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight truncate max-w-full">
-            {isConnected ? `↓ ${formatSpeed(stats.downSpeed)}` : 'Indisponible'}
+            {hasActiveSession ? `↓ ${formatSpeed(stats.downSpeed)}` : 'Indisponible'}
           </span>
           <span className="text-[11px] font-rajdhani font-semibold text-slate-400 mt-0.5">
-            Téléchargement
+            {isNoTraffic ? '0 paquet reçu' : 'Téléchargement'}
           </span>
         </div>
 
@@ -56,10 +63,10 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
         <div className="flex flex-col items-center justify-center px-1">
           <ArrowUp className="w-4 h-4 text-[#FF00E5] mb-1" strokeWidth={2.5} />
           <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight truncate max-w-full">
-            {isConnected ? `↑ ${formatSpeed(stats.upSpeed)}` : 'Indisponible'}
+            {hasActiveSession ? `↑ ${formatSpeed(stats.upSpeed)}` : 'Indisponible'}
           </span>
           <span className="text-[11px] font-rajdhani font-semibold text-slate-400 mt-0.5">
-            Envoi
+            {stats.packetsOut ? `${stats.packetsOut} paquets émis` : 'Envoi'}
           </span>
         </div>
 
@@ -70,7 +77,7 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
             {formatDuration(stats.durationSeconds)}
           </span>
           <span className="text-[11px] font-rajdhani font-semibold text-slate-400 mt-0.5">
-            Durée
+            {isNoTraffic ? 'Inactif' : 'Durée'}
           </span>
         </div>
       </div>
