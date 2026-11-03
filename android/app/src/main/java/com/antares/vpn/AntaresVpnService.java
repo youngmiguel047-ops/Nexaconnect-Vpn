@@ -104,7 +104,14 @@ public class AntaresVpnService extends VpnService implements Runnable {
                 activeServerPort = intent.getIntExtra("server_port", 443);
                 activeProtocol = intent.getStringExtra("protocol") != null ? intent.getStringExtra("protocol") : "VLESS-Reality";
                 String dnsServer = intent.getStringExtra("dns") != null ? intent.getStringExtra("dns") : "1.1.1.1";
+                String uuid = intent.getStringExtra("uuid");
+                String transport = intent.getStringExtra("transport");
+                String wsPath = intent.getStringExtra("ws_path");
+                String wsHost = intent.getStringExtra("ws_host");
+                String sni = intent.getStringExtra("sni");
                 ArrayList<String> bypassPackages = intent.getStringArrayListExtra("bypass_packages");
+
+                Log.i(TAG, "Configuring VpnService for server: " + activeServerName + " (" + activeServerIp + ":" + activeServerPort + ") transport=" + transport + " path=" + wsPath + " host=" + wsHost + " sni=" + sni + " uuid=" + (uuid != null && uuid.length() > 4 ? uuid.substring(0, 3) + "..." : "***"));
 
                 // CRITICAL: Call startForeground immediately to avoid ForegroundServiceDidNotStartInTimeException
                 startForegroundSafe(buildForegroundNotification("Établissement du tunnel sécurisé..."));

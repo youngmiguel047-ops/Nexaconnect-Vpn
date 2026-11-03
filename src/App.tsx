@@ -193,32 +193,55 @@ export default function App() {
     }
   }, [tokenInfo]);
 
-  // Telemetry simulation loop when connected
+  // Real Telemetry loop (Android VpnService TUN bytes or real network throughput)
   useEffect(() => {
     let timer: NodeJS.Timeout;
 
     if (connectionState === 'connected') {
-      timer = setInterval(() => {
-        setStats((prev) => {
-          // Dynamic cyber speeds: download between 8,000 KB/s and 24,000 KB/s
-          const speedFactor = quickSettings.fastMode ? 1.4 : 1.0;
-          const vipMultiplier = tokenInfo && tokenInfo.status === 'active' ? 1.8 : 1.0;
-          const currentDown = Math.floor((9000 + Math.random() * 8000) * speedFactor * vipMultiplier);
-          const currentUp = Math.floor((1200 + Math.random() * 2400) * speedFactor * vipMultiplier);
+      let lastBytesIn = 0;
+      let lastBytesOut = 0;
+      let lastTimestamp = Date.now();
 
-          const addedDownMb = currentDown / (1024 * 1024);
-          const addedUpMb = currentUp / (1024 * 1024);
+      timer = setInterval(async () => {
+        const now = Date.now();
+        const timeDiffSec = Math.max(0.5, (now - lastTimestamp) / 1000);
+        lastTimestamp = now;
 
-          return {
-            ...prev,
-            durationSeconds: prev.durationSeconds + 1,
-            downSpeed: currentDown,
-            upSpeed: currentUp,
-            totalDown: prev.totalDown + addedDownMb,
-            totalUp: prev.totalUp + addedUpMb,
-            packetLoss: Math.random() > 0.85 ? 0.1 : 0,
-          };
-        });
+        if (realVpn.isNativeEnvironment()) {
+          const nativeStatus = await realVpn.getNativeStatus();
+          if (nativeStatus && nativeStatus.connected) {
+            const currentBytesIn = nativeStatus.bytesIn || 0;
+            const currentBytesOut = nativeStatus.bytesOut || 0;
+
+            const deltaIn = Math.max(0, currentBytesIn - lastBytesIn);
+            const deltaOut = Math.max(0, currentBytesOut - lastBytesOut);
+            lastBytesIn = currentBytesIn;
+            lastBytesOut = currentBytesOut;
+
+            const speedDownKb = deltaIn / 1024 / timeDiffSec;
+            const speedUpKb = deltaOut / 1024 / timeDiffSec;
+
+            setStats((prev) => ({
+              ...prev,
+              durationSeconds: nativeStatus.durationSeconds,
+              downSpeed: Math.round(speedDownKb),
+              upSpeed: Math.round(speedUpKb),
+              totalDown: Math.round((currentBytesIn / (1024 * 1024)) * 100) / 100,
+              totalUp: Math.round((currentBytesOut / (1024 * 1024)) * 100) / 100,
+              packetLoss: 0,
+            }));
+            return;
+          }
+        }
+
+        // Web mode: real timer increment, with genuine Ping & DoH telemetry
+        setStats((prev) => ({
+          ...prev,
+          durationSeconds: prev.durationSeconds + 1,
+          downSpeed: 0,
+          upSpeed: 0,
+          packetLoss: 0,
+        }));
       }, 1000);
     } else {
       setStats((prev) => ({
@@ -229,7 +252,7 @@ export default function App() {
     }
 
     return () => clearInterval(timer);
-  }, [connectionState, quickSettings.fastMode, tokenInfo]);
+  }, [connectionState]);
 
   // VPN Connect / Disconnect Transition Controller (Live Native + Web Engine)
   const handleToggleConnect = async () => {

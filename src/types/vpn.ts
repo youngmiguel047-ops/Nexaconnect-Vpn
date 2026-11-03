@@ -10,7 +10,10 @@ export type VpnConnectionState =
   | 'disconnecting'
   | 'error';
 
-export type VpnProtocol = 'VLESS-Reality' | 'Hysteria2' | 'WireGuard' | 'Shadowsocks' | 'SSH';
+export type VpnProtocol = 'VLESS-Reality' | 'VLESS' | 'VMess' | 'Trojan' | 'Shadowsocks' | 'Hysteria2' | 'WireGuard' | 'SSH';
+
+export type TransportType = 'tcp' | 'ws' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp';
+export type SecurityType = 'reality' | 'tls' | 'none';
 
 export interface VpnServer {
   id: string;
@@ -27,6 +30,54 @@ export interface VpnServer {
   isVip: boolean;
   isRecommended?: boolean;
   isFavorite?: boolean;
+
+  // A. Informations étendues
+  uuid?: string; // Peut être un UUID ou un identifiant personnalisé (ex: @abess237)
+  email?: string; // Remarque ou email facultatif
+
+  // B. Transport & Headers
+  transport?: TransportType;
+  wsPath?: string;
+  wsHost?: string; // Header Host (indépendant du SNI)
+  customHeaders?: Record<string, string>;
+
+  // C. Sécurité TLS & REALITY
+  security?: SecurityType;
+  sni?: string; // Server Name Indication
+  fingerprint?: string; // fp (chrome, firefox, etc.)
+  alpn?: string;
+  allowInsecure?: boolean;
+  publicKey?: string; // Reality pbk
+  shortId?: string; // Reality sid
+  spiderX?: string; // Reality spx
+
+  // D. Paramètres VLESS
+  flow?: string;
+  encryption?: string;
+  mux?: boolean;
+  muxConcurrency?: number;
+  muxMode?: string;
+
+  // E. Réseau et routage
+  dnsPrimary?: string;
+  dnsSecondary?: string;
+  dnsCustom?: string;
+  enableIpv4?: boolean;
+  enableIpv6?: boolean;
+  mtu?: number;
+  routingMode?: 'global' | 'bypass_lan' | 'custom';
+  bypassLan?: boolean;
+  splitTunneling?: boolean;
+  includedApps?: string[];
+  excludedApps?: string[];
+
+  // F. Options avancées
+  connectTimeout?: number;
+  readTimeout?: number;
+  keepAlive?: number;
+  fragmentation?: boolean;
+  customJson?: string;
+  extraParams?: Record<string, string>;
 }
 
 export interface VpnStats {
@@ -66,16 +117,36 @@ export interface AtrsConfig {
     port: number;
     protocol: VpnProtocol;
     uuidMasked: string;
-    network: string;
-    tls: boolean;
+    transport?: TransportType;
+    network?: string;
+    security?: SecurityType;
+    tls?: boolean;
+    wsPath?: string;
+    wsHost?: string;
+    sni?: string;
+    fingerprint?: string;
+    publicKey?: string;
+    shortId?: string;
+    flow?: string;
+    mux?: boolean;
   }[];
   dns: {
     primary: string;
     fallback: string;
+    custom?: string;
   };
   routing: {
     bypassLan: boolean;
     blockAds: boolean;
+    routingMode?: 'global' | 'bypass_lan' | 'custom';
+    enableIpv4?: boolean;
+    enableIpv6?: boolean;
+    mtu?: number;
+  };
+  advanced?: {
+    connectTimeout?: number;
+    keepAlive?: number;
+    extraParams?: Record<string, string>;
   };
 }
 

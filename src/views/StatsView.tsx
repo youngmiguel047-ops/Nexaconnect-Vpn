@@ -58,10 +58,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <ArrowDown className="w-4 h-4 text-[#00FF88]" />
           </div>
           <span className="font-orbitron font-extrabold text-xl text-white text-glow-green">
-            {isConnected ? `${(stats.downSpeed / 1024).toFixed(2)} MB/s` : '0.00 MB/s'}
+            {isConnected ? (stats.downSpeed > 0 ? `${(stats.downSpeed / 1024).toFixed(2)} MB/s` : '0.00 MB/s') : 'Indisponible'}
           </span>
           <div className="mt-2 text-[10px] font-mono-tech text-slate-400">
-            Total transféré : {(stats.totalDown / 1024).toFixed(2)} GB
+            Total transféré : {isConnected ? `${(stats.totalDown / 1024).toFixed(2)} GB` : '--'}
           </div>
         </div>
 
@@ -71,10 +71,10 @@ export const StatsView: React.FC<StatsViewProps> = ({
             <ArrowUp className="w-4 h-4 text-[#00E5FF]" />
           </div>
           <span className="font-orbitron font-extrabold text-xl text-white text-glow-cyan">
-            {isConnected ? `${(stats.upSpeed / 1024).toFixed(2)} MB/s` : '0.00 MB/s'}
+            {isConnected ? (stats.upSpeed > 0 ? `${(stats.upSpeed / 1024).toFixed(2)} MB/s` : '0.00 MB/s') : 'Indisponible'}
           </span>
           <div className="mt-2 text-[10px] font-mono-tech text-slate-400">
-            Total envoyé : {(stats.totalUp / 1024).toFixed(2)} GB
+            Total envoyé : {isConnected ? `${(stats.totalUp / 1024).toFixed(2)} GB` : '--'}
           </div>
         </div>
       </div>

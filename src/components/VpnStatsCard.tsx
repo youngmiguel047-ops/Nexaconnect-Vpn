@@ -20,6 +20,7 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
   const isConnected = connectionState === 'connected';
 
   const formatDuration = (seconds: number) => {
+    if (!isConnected || seconds <= 0) return '--:--:--';
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -29,6 +30,8 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
   };
 
   const formatSpeed = (kbps: number) => {
+    if (!isConnected) return 'Indisponible';
+    if (kbps <= 0) return '0.0 KB/s';
     if (kbps > 1024) {
       return `${(kbps / 1024).toFixed(1)} MB/s`;
     }
@@ -41,8 +44,8 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
         {/* Col 1: Téléchargement */}
         <div className="flex flex-col items-center justify-center px-1">
           <ArrowDown className="w-4 h-4 text-[#00E5FF] mb-1" strokeWidth={2.5} />
-          <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight">
-            {isConnected ? `↓ ${formatSpeed(stats.downSpeed)}` : '↓ 0.0 KB/s'}
+          <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight truncate max-w-full">
+            {isConnected ? `↓ ${formatSpeed(stats.downSpeed)}` : 'Indisponible'}
           </span>
           <span className="text-[11px] font-rajdhani font-semibold text-slate-400 mt-0.5">
             Téléchargement
@@ -52,8 +55,8 @@ export const VpnStatsCard: React.FC<VpnStatsCardProps> = ({
         {/* Col 2: Envoi */}
         <div className="flex flex-col items-center justify-center px-1">
           <ArrowUp className="w-4 h-4 text-[#FF00E5] mb-1" strokeWidth={2.5} />
-          <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight">
-            {isConnected ? `↑ ${formatSpeed(stats.upSpeed)}` : '↑ 0.0 KB/s'}
+          <span className="font-orbitron font-bold text-xs sm:text-sm text-white tracking-tight truncate max-w-full">
+            {isConnected ? `↑ ${formatSpeed(stats.upSpeed)}` : 'Indisponible'}
           </span>
           <span className="text-[11px] font-rajdhani font-semibold text-slate-400 mt-0.5">
             Envoi

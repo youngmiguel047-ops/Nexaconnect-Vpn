@@ -137,6 +137,11 @@ public class AntaresVpnPlugin extends Plugin {
             int serverPort = call.getInt("serverPort", 443);
             String protocol = call.getString("protocol", "VLESS-Reality");
             String dns = call.getString("dns", "1.1.1.1");
+            String uuid = call.getString("uuid", "@abess237");
+            String transport = call.getString("transport", "ws");
+            String wsPath = call.getString("wsPath", "/@abess237");
+            String wsHost = call.getString("wsHost", "");
+            String sni = call.getString("sni", "");
 
             JSArray bypassArr = call.getArray("bypassPackages");
             ArrayList<String> bypassList = new ArrayList<>();
@@ -155,6 +160,11 @@ public class AntaresVpnPlugin extends Plugin {
             intent.putExtra("server_port", serverPort);
             intent.putExtra("protocol", protocol);
             intent.putExtra("dns", dns);
+            intent.putExtra("uuid", uuid);
+            intent.putExtra("transport", transport);
+            intent.putExtra("ws_path", wsPath);
+            intent.putExtra("ws_host", wsHost);
+            intent.putExtra("sni", sni);
             intent.putStringArrayListExtra("bypass_packages", bypassList);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

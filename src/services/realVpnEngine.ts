@@ -15,6 +15,11 @@ export interface NativeAntaresVpnPlugin {
     serverPort: number;
     protocol: string;
     dns: string;
+    uuid?: string;
+    transport?: string;
+    wsPath?: string;
+    wsHost?: string;
+    sni?: string;
     bypassPackages: string[];
   }): Promise<{ success: boolean; state: string }>;
   stop(): Promise<{ success: boolean; state: string }>;
@@ -107,6 +112,11 @@ class RealVpnEngine {
           serverPort: server.port,
           protocol: server.protocol,
           dns: dns,
+          uuid: server.uuid,
+          transport: server.transport,
+          wsPath: server.wsPath,
+          wsHost: server.wsHost,
+          sni: server.sni,
           bypassPackages: bypassApps,
         });
 
@@ -129,6 +139,27 @@ class RealVpnEngine {
       success: true,
       state: 'connected',
     };
+  }
+
+  /**
+   * Récupère l'état et la télémétrie réelle du VPN natif Android
+   */
+  public async getNativeStatus(): Promise<{
+    connected: boolean;
+    durationSeconds: number;
+    bytesIn: number;
+    bytesOut: number;
+    serverName: string;
+    serverIp: string;
+  } | null> {
+    if (this.isNative) {
+      try {
+        return await NativeVpn.getStatus();
+      } catch (e) {
+        console.warn('Erreur lecture getStatus natif:', e);
+      }
+    }
+    return null;
   }
 
   /**

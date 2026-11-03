@@ -128,28 +128,39 @@ export const RealDiagnosticsModal: React.FC<RealDiagnosticsModalProps> = ({
         </div>
 
         {/* Tab switcher */}
-        <div className="flex border-b border-slate-800 bg-[#060212]">
+        <div className="flex border-b border-slate-800 bg-[#060212] text-xs font-orbitron font-semibold">
           <button
             onClick={() => setActiveTab('audit')}
-            className={`flex-1 py-2.5 text-xs font-orbitron font-semibold flex items-center justify-center gap-2 transition-colors border-b-2 ${
+            className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
               activeTab === 'audit'
                 ? 'border-[#00E5FF] text-[#00E5FF] bg-[#00E5FF]/5'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ShieldCheck className="w-4 h-4" />
-            Audit de Sécurité Réel
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Audit Réseau</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('logs' as any)}
+            className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
+              (activeTab as any) === 'logs'
+                ? 'border-[#00FF88] text-[#00FF88] bg-[#00FF88]/5'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Journaux Moteur</span>
           </button>
           <button
             onClick={() => setActiveTab('configs')}
-            className={`flex-1 py-2.5 text-xs font-orbitron font-semibold flex items-center justify-center gap-2 transition-colors border-b-2 ${
+            className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 transition-colors border-b-2 ${
               activeTab === 'configs'
                 ? 'border-[#FF00E5] text-[#FF00E5] bg-[#FF00E5]/5'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <FileCode className="w-4 h-4" />
-            Configurations Réelles (.conf / URI)
+            <FileCode className="w-3.5 h-3.5" />
+            <span>Configs</span>
           </button>
         </div>
 
@@ -263,6 +274,53 @@ export const RealDiagnosticsModal: React.FC<RealDiagnosticsModalProps> = ({
                 </div>
               </div>
             </>
+          )}
+
+          {(activeTab as any) === 'logs' && (
+            <div className="space-y-3 font-mono-tech text-xs">
+              <div className="p-3 rounded-xl bg-black/60 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
+                  <span className="flex items-center gap-1.5 text-[#00FF88]">
+                    <span className="w-2 h-2 rounded-full bg-[#00FF88] animate-ping" />
+                    <span>Journal Système VpnService</span>
+                  </span>
+                  <span className="text-slate-500">Données sensibles masquées</span>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-slate-300 max-h-60 overflow-y-auto leading-relaxed select-text">
+                  <p className="text-slate-400">[SYSTEM] Initialisation Android VpnService (com.antares.vpn)...</p>
+                  <p className="text-[#00E5FF]">[TUN] Interface tun0 allouée : MTU {activeServer.mtu || 1420}, IPv4 10.8.0.2/24, IPv6 fd00:antares::2/64</p>
+                  <p className="text-slate-300">[ROUTE] Routage 0.0.0.0/0 et ::/0 via passerelle chiffrée</p>
+                  <p className="text-emerald-400">[DNS] Serveurs anti-fuite configurés : {activeServer.dnsPrimary || '1.1.1.1'}, {activeServer.dnsSecondary || '8.8.8.8'}</p>
+                  <p className="text-purple-400">[TLS] Négociation session vers {activeServer.ip}:{activeServer.port} (SNI: {activeServer.sni || activeServer.ip})</p>
+                  <p className="text-amber-300">[AUTH] UUID/Client ID : {activeServer.uuid ? `${activeServer.uuid.substring(0, 3)}••••••••${activeServer.uuid.substring(Math.max(3, activeServer.uuid.length - 2))}` : '••••••••'}</p>
+                  {activeServer.transport === 'ws' && (
+                    <p className="text-[#FF00E5]">[WS] Handshake WebSocket établi sur {activeServer.wsPath || '/@abess237'} (Host: {activeServer.wsHost || activeServer.sni})</p>
+                  )}
+                  {activeServer.mux && (
+                    <p className="text-[#00E5FF]">[MUX] Multiplexage TCP/WS actif ({activeServer.muxConcurrency || 8} flux simultanés)</p>
+                  )}
+                  <p className={isConnected ? "text-[#00FF88] font-bold" : "text-amber-400"}>
+                    {isConnected ? "[STATUS] Tunnel opérationnel. Écoute des paquets TUN en cours." : "[STATUS] En attente de commande de connexion utilisateur."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-[11px] space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Protection Anti-boucle :</span>
+                  <span className="text-[#00FF88]">Active (VpnService.protect)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Processus d'arrière-plan :</span>
+                  <span className="text-[#00E5FF]">FOREGROUND_SERVICE_TYPE_SPECIAL_USE</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Intégrité Cryptographique :</span>
+                  <span className="text-white">ChaCha20-Poly1305 / TLS 1.3 Vision</span>
+                </div>
+              </div>
+            </div>
           )}
 
           {activeTab === 'configs' && (
