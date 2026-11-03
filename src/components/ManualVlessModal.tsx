@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Plus, 
@@ -17,10 +17,17 @@ import {
   Globe, 
   FileCode,
   Zap,
-  Info
+  ClipboardPaste,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { VpnServer, AtrsConfig } from '../types/vpn';
-import { AtrsParser } from '../utils/atrsParser';
+import { 
+  parseVlessInput, 
+  parsedVlessToVpnServer, 
+  parsedVlessToAtrsConfig, 
+  ParsedVlessData 
+} from '../utils/vlessParser';
 import { cyberAudio } from '../utils/audio';
 
 interface ManualVlessModalProps {
@@ -58,7 +65,38 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
   // Quick Paste URI
   const [rawUri, setRawUri] = useState('');
   const [parseStatus, setParseStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<'success' | 'error' | 'info'>('info');
+  const [parsedPreview, setParsedPreview] = useState<ParsedVlessData | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
+
+  // Auto-detect and parse whenever rawUri changes in the paste tab
+  useEffect(() => {
+    const trimmed = rawUri.trim();
+    if (!trimmed) {
+      setParsedPreview(null);
+      setParseStatus(null);
+      return;
+    }
+
+    try {
+      const result = parseVlessInput(trimmed);
+      if (result.isValid) {
+        setParsedPreview(result);
+        setParseStatus(`Configuration détectée : ${result.serverName} (${result.host}:${result.port})`);
+        setStatusType('success');
+      } else {
+        setParsedPreview(null);
+        if (result.errorMessage) {
+          setParseStatus(result.errorMessage);
+          setStatusType('error');
+        }
+      }
+    } catch (err: any) {
+      setParsedPreview(null);
+      setParseStatus(`Erreur de format : ${err?.message || 'Lien invalide'}`);
+      setStatusType('error');
+    }
+  }, [rawUri]);
 
   if (!isOpen) return null;
 
@@ -91,55 +129,85 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
     setCity('Zurich');
     setFlag('🇨🇭');
     setParseStatus('Modèle VLESS Reality Suisse chargé avec succès.');
+    setStatusType('success');
+  };
+
+  // Safe paste from clipboard
+  const handlePasteFromClipboard = async () => {
+    cyberAudio.playClick();
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setRawUri(text);
+          applyParsedDataToForm(parseVlessInput(text));
+        }
+      }
+    } catch {
+      setParseStatus('Presse-papier inaccessible. Veuillez coller directement dans le champ.');
+      setStatusType('info');
+    }
+  };
+
+  // Apply parsed data to state form fields
+  const applyParsedDataToForm = (result: ParsedVlessData) => {
+    if (!result.isValid) return;
+    if (result.serverName) setServerName(result.serverName);
+    if (result.host) setHost(result.host);
+    if (result.port) setPort(result.port.toString());
+    if (result.uuid) setUuid(result.uuid);
+    if (result.security) setSecurity(result.security);
+    if (result.sni) setSni(result.sni);
+    if (result.fingerprint) setFingerprint(result.fingerprint);
+    if (result.publicKey) setPublicKey(result.publicKey);
+    if (result.shortId) setShortId(result.shortId);
+    if (result.flow) setFlow(result.flow);
+    if (result.networkType) setNetworkType(result.networkType);
+    if (result.wsPath) setWsPath(result.wsPath);
+    if (result.grpcServiceName) setGrpcServiceName(result.grpcServiceName);
+    if (result.country) setCountry(result.country);
+    if (result.city) setCity(result.city);
+    if (result.flag) setFlag(result.flag);
   };
 
   // Parse raw VLESS URI
   const handleParseUri = () => {
     cyberAudio.playClick();
     const trimmed = rawUri.trim();
-    if (!trimmed.startsWith('vless://')) {
-      setParseStatus('Erreur : le lien doit débuter par "vless://".');
+    if (!trimmed) {
+      setParseStatus('Veuillez d\'abord coller une configuration VLESS ou un profil JSON.');
+      setStatusType('error');
       cyberAudio.playGlitch();
       return;
     }
 
     try {
-      // Format: vless://uuid@host:port?param1=val&param2=val#name
-      const withoutScheme = trimmed.replace('vless://', '');
-      const [mainPart, hashFragment] = withoutScheme.split('#');
-      const [authPart, queryPart] = mainPart.split('?');
-      const [parsedUuid, hostPort] = authPart.split('@');
-      const [parsedHost, parsedPort] = hostPort.split(':');
-
-      if (parsedUuid) setUuid(parsedUuid);
-      if (parsedHost) setHost(parsedHost);
-      if (parsedPort) setPort(parsedPort);
-      if (hashFragment) setServerName(decodeURIComponent(hashFragment));
-
-      if (queryPart) {
-        const params = new URLSearchParams(queryPart);
-        if (params.get('security')) setSecurity(params.get('security') as any);
-        if (params.get('sni')) setSni(params.get('sni')!);
-        if (params.get('fp')) setFingerprint(params.get('fp')!);
-        if (params.get('pbk')) setPublicKey(params.get('pbk')!);
-        if (params.get('sid')) setShortId(params.get('sid')!);
-        if (params.get('flow')) setFlow(params.get('flow')!);
-        if (params.get('type')) setNetworkType(params.get('type') as any);
-        if (params.get('path')) setWsPath(params.get('path')!);
-        if (params.get('serviceName')) setGrpcServiceName(params.get('serviceName')!);
+      const result = parseVlessInput(trimmed);
+      if (!result.isValid) {
+        setParseStatus(result.errorMessage || 'Lien VLESS invalide.');
+        setStatusType('error');
+        cyberAudio.playGlitch();
+        return;
       }
 
-      setParseStatus('Lien VLESS importé avec succès ! Les champs ont été mis à jour.');
+      applyParsedDataToForm(result);
+      setParseStatus(`Nœud VLESS Reality importé avec succès : ${result.serverName}`);
+      setStatusType('success');
       setInputTab('form');
       cyberAudio.playConnect();
     } catch (e: any) {
       setParseStatus(`Erreur de décodage de l'URI : ${e.message}`);
+      setStatusType('error');
       cyberAudio.playGlitch();
     }
   };
 
   // Build the .ATRS structure
   const buildAtrsObject = (): AtrsConfig => {
+    const maskedUuid = uuid && uuid.length > 8 
+      ? `${uuid.substring(0, 4)}••••••••${uuid.substring(uuid.length - 4)}` 
+      : '••••••••••••';
+
     return {
       version: '1.2.0',
       configName: serverName || 'Configuration VLESS Antares',
@@ -148,11 +216,11 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
       signature: 'ECDSA-P256-ANTARES-VLESS-MANUAL',
       servers: [
         {
-          name: serverName,
-          server: host,
+          name: serverName || 'Serveur VLESS',
+          server: host || '185.190.142.66',
           port: parseInt(port, 10) || 443,
           protocol: 'VLESS-Reality',
-          uuidMasked: uuid.length > 8 ? `${uuid.substring(0, 4)}••••••••${uuid.substring(uuid.length - 4)}` : '••••••••',
+          uuidMasked: maskedUuid,
           network: networkType,
           tls: security !== 'none',
         },
@@ -172,7 +240,7 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
   const buildVpnServer = (): VpnServer => {
     return {
       id: `vless-manual-${Date.now()}`,
-      name: serverName,
+      name: serverName || 'Serveur VLESS Antares',
       city: city || 'Serveur VLESS',
       country: country || 'Personnalisé',
       countryCode: 'CFG',
@@ -180,7 +248,7 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
       ping: Math.floor(18 + Math.random() * 25),
       load: Math.floor(15 + Math.random() * 30),
       protocol: 'VLESS-Reality',
-      ip: host,
+      ip: host || '185.190.142.66',
       port: parseInt(port, 10) || 443,
       isVip: true,
       isRecommended: true,
@@ -188,51 +256,88 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
     };
   };
 
-  // Save to App
+  // Save to App (Fail-safe: parses rawUri if active tab is uri)
   const handleSaveToApp = () => {
-    cyberAudio.playConnect();
-    const srv = buildVpnServer();
-    const atrs = buildAtrsObject();
-    onSaveVlessServer(srv, atrs);
-    onClose();
+    try {
+      cyberAudio.playConnect();
+
+      // If the user is currently on the URI tab and pasted something, ensure it is parsed first
+      if (inputTab === 'uri' && rawUri.trim()) {
+        const parsed = parseVlessInput(rawUri.trim());
+        if (parsed.isValid) {
+          const srv = parsedVlessToVpnServer(parsed);
+          const atrs = parsedVlessToAtrsConfig(parsed);
+          onSaveVlessServer(srv, atrs);
+          onClose();
+          return;
+        }
+      }
+
+      const srv = buildVpnServer();
+      const atrs = buildAtrsObject();
+      onSaveVlessServer(srv, atrs);
+      onClose();
+    } catch (err: any) {
+      setParseStatus(`Erreur de validation : ${err?.message || 'Impossible d\'enregistrer'}`);
+      setStatusType('error');
+      cyberAudio.playGlitch();
+    }
   };
 
-  // Download .atrs file
+  // Safe Export / Copy .atrs config without WebView download crash
   const handleDownloadAtrs = () => {
     cyberAudio.playClick();
-    const atrs = buildAtrsObject();
-    const fullAtrs = {
-      magic: 'ATRS_CYBER_SPEC',
-      ...atrs,
-      vlessPayload: {
-        server: host,
-        port: parseInt(port, 10) || 443,
-        uuid: uuid,
-        security: security,
-        sni: sni,
-        fingerprint: fingerprint,
-        publicKey: publicKey,
-        shortId: shortId,
-        flow: flow,
-        network: networkType,
-        wsPath: wsPath,
-        grpcServiceName: grpcServiceName,
-      },
-    };
+    try {
+      const atrs = buildAtrsObject();
+      const fullAtrs = {
+        magic: 'ATRS_CYBER_SPEC',
+        ...atrs,
+        vlessPayload: {
+          server: host,
+          port: parseInt(port, 10) || 443,
+          uuid: uuid,
+          security: security,
+          sni: sni,
+          fingerprint: fingerprint,
+          publicKey: publicKey,
+          shortId: shortId,
+          flow: flow,
+          network: networkType,
+          wsPath: wsPath,
+          grpcServiceName: grpcServiceName,
+        },
+      };
 
-    const blob = new Blob([JSON.stringify(fullAtrs, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const sanitizedFileName = (serverName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'antares_vless') + '.atrs';
-    a.download = sanitizedFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const jsonStr = JSON.stringify(fullAtrs, null, 2);
 
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2500);
+      // Safe export: try browser download if supported, fallback to clipboard
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        try {
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const sanitizedFileName = (serverName.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'antares_vless') + '.atrs';
+          a.download = sanitizedFileName;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 100);
+        } catch {
+          // Fallback if blob download fails in Android WebView
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(jsonStr);
+          }
+        }
+      }
+
+      setCopiedNotification(true);
+      setTimeout(() => setCopiedNotification(false), 2500);
+    } catch {
+      cyberAudio.playGlitch();
+    }
   };
 
   return (
@@ -252,7 +357,7 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-400 font-rajdhani">
-                Créer, coller et exporter un nœud VLESS Reality avec extension .atrs
+                Créer, coller et enregistrer un nœud VLESS Reality avec extension .atrs
               </p>
             </div>
           </div>
@@ -322,16 +427,30 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
             </span>
             <button
               onClick={loadPresetTemplate}
-              className="text-[11px] font-orbitron font-bold text-[#00E5FF] hover:underline flex items-center gap-1"
+              className="text-[11px] font-orbitron font-bold text-[#00E5FF] hover:underline flex items-center gap-1 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#00E5FF]" />
               Charger un exemple
             </button>
           </div>
 
+          {/* Status Message */}
           {parseStatus && (
-            <div className="p-2.5 rounded-lg bg-[#00E5FF]/15 border border-[#00E5FF]/30 text-xs font-mono-tech text-[#00E5FF]">
-              {parseStatus}
+            <div
+              className={`p-2.5 rounded-lg text-xs font-mono-tech flex items-center gap-2 ${
+                statusType === 'success'
+                  ? 'bg-[#00FF88]/15 border border-[#00FF88]/40 text-[#00FF88]'
+                  : statusType === 'error'
+                  ? 'bg-[#FF3155]/15 border border-[#FF3155]/40 text-[#FF3155]'
+                  : 'bg-[#00E5FF]/15 border border-[#00E5FF]/30 text-[#00E5FF]'
+              }`}
+            >
+              {statusType === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              )}
+              <span className="truncate">{parseStatus}</span>
             </div>
           )}
 
@@ -373,9 +492,9 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
                       type="text"
                       value={`${city}, ${country}`}
                       onChange={(e) => {
-                        const [c, co] = e.target.value.split(',');
-                        if (c) setCity(c.trim());
-                        if (co) setCountry(co.trim());
+                        const parts = e.target.value.split(',');
+                        if (parts[0]) setCity(parts[0].trim());
+                        if (parts[1]) setCountry(parts[1].trim());
                       }}
                       className="w-full px-3 py-2 rounded-lg bg-black/60 border border-slate-700 text-white"
                       placeholder="Tokyo, Japon"
@@ -420,7 +539,7 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
                   </label>
                   <button
                     onClick={generateRandomUuid}
-                    className="text-[10px] font-mono-tech text-[#00FF88] hover:underline"
+                    className="text-[10px] font-mono-tech text-[#00FF88] hover:underline cursor-pointer"
                   >
                     Générer un UUID v4
                   </button>
@@ -523,9 +642,20 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
           {/* TAB 2: URI PASTE */}
           {inputTab === 'uri' && (
             <div className="space-y-3">
-              <label className="block text-xs font-mono-tech text-slate-300">
-                Collez un lien complet de configuration VLESS (vless://...) :
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-mono-tech text-slate-300">
+                  Collez un lien complet VLESS (vless://...) ou un profil JSON :
+                </label>
+                <button
+                  onClick={handlePasteFromClipboard}
+                  className="text-[11px] font-mono-tech text-[#00E5FF] hover:underline flex items-center gap-1 cursor-pointer"
+                  title="Coller automatiquement depuis le presse-papier"
+                >
+                  <ClipboardPaste className="w-3.5 h-3.5" />
+                  <span>Coller</span>
+                </button>
+              </div>
+
               <textarea
                 rows={5}
                 value={rawUri}
@@ -534,9 +664,32 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
                 className="w-full p-3 rounded-xl bg-black/80 border border-slate-700 focus:border-[#FF00E5] focus:outline-none text-xs text-white font-mono-tech leading-relaxed resize-none"
               />
 
+              {/* Live Preview Card if valid */}
+              {parsedPreview && (
+                <div className="p-3 rounded-xl bg-[#00FF88]/10 border border-[#00FF88]/30 space-y-1.5 text-xs font-mono-tech animate-in fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-bold flex items-center gap-1.5">
+                      <span>{parsedPreview.flag}</span>
+                      <span>{parsedPreview.serverName}</span>
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#00FF88]/20 text-[#00FF88] font-bold">
+                      {parsedPreview.security.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-slate-300 text-[11px]">
+                    Hôte : <span className="text-[#00E5FF]">{parsedPreview.host}:{parsedPreview.port}</span> • Réseau : <span className="text-slate-200">{parsedPreview.networkType.toUpperCase()}</span>
+                  </div>
+                  {parsedPreview.sni && (
+                    <div className="text-slate-400 text-[10px] truncate">
+                      SNI : {parsedPreview.sni}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={handleParseUri}
-                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-[#FF00E5] to-[#8B00FF] text-white font-orbitron font-bold text-xs tracking-wider hover:brightness-110 active:scale-95 shadow-[0_0_15px_rgba(255,0,229,0.3)]"
+                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-[#FF00E5] to-[#8B00FF] text-white font-orbitron font-bold text-xs tracking-wider hover:brightness-110 active:scale-95 shadow-[0_0_15px_rgba(255,0,229,0.3)] cursor-pointer"
               >
                 Analyser et Importer le lien VLESS
               </button>
@@ -561,18 +714,18 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
         <div className="p-3 bg-[#060210] border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap">
           <button
             onClick={handleDownloadAtrs}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#00E5FF]/15 hover:bg-[#00E5FF]/25 border border-[#00E5FF]/40 text-[#00E5FF] text-xs font-mono-tech font-bold active:scale-95 transition-all"
-            title="Télécharger directement le fichier de configuration avec extension .atrs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#00E5FF]/15 hover:bg-[#00E5FF]/25 border border-[#00E5FF]/40 text-[#00E5FF] text-xs font-mono-tech font-bold active:scale-95 transition-all cursor-pointer"
+            title="Exporter ou copier le profil .atrs"
           >
             {copiedNotification ? (
               <>
                 <Check className="w-4 h-4 text-[#00FF88]" />
-                <span className="text-[#00FF88]">Téléchargé !</span>
+                <span className="text-[#00FF88]">Exporté / Copié !</span>
               </>
             ) : (
               <>
                 <Download className="w-4 h-4" />
-                <span>Télécharger .atrs</span>
+                <span>Exporter .atrs</span>
               </>
             )}
           </button>
@@ -583,14 +736,14 @@ export const ManualVlessModal: React.FC<ManualVlessModalProps> = ({
                 cyberAudio.playClick();
                 onClose();
               }}
-              className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-orbitron font-semibold"
+              className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-orbitron font-semibold cursor-pointer"
             >
               Annuler
             </button>
 
             <button
               onClick={handleSaveToApp}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#00E5FF] via-[#0066FF] to-[#8B00FF] text-white text-xs font-orbitron font-bold tracking-wide hover:brightness-110 active:scale-95 shadow-[0_0_15px_rgba(0,229,255,0.4)]"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#00E5FF] via-[#0066FF] to-[#8B00FF] text-white text-xs font-orbitron font-bold tracking-wide hover:brightness-110 active:scale-95 shadow-[0_0_15px_rgba(0,229,255,0.4)] cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>Enregistrer & Activer</span>

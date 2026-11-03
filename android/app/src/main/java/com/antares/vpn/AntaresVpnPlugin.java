@@ -38,29 +38,33 @@ public class AntaresVpnPlugin extends Plugin {
     public void load() {
         super.load();
 
-        // Réception des broadcasts d'état émis par AntaresVpnService
-        statusReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (intent != null && AntaresVpnService.ACTION_STATUS_BROADCAST.equals(intent.getAction())) {
-                    String state = intent.getStringExtra("state");
-                    String serverName = intent.getStringExtra("server_name");
-                    String serverIp = intent.getStringExtra("server_ip");
+        try {
+            // Réception des broadcasts d'état émis par AntaresVpnService
+            statusReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (intent != null && AntaresVpnService.ACTION_STATUS_BROADCAST.equals(intent.getAction())) {
+                        String state = intent.getStringExtra("state");
+                        String serverName = intent.getStringExtra("server_name");
+                        String serverIp = intent.getStringExtra("server_ip");
 
-                    JSObject data = new JSObject();
-                    data.put("state", state);
-                    data.put("serverName", serverName);
-                    data.put("serverIp", serverIp);
-                    notifyListeners("vpnStateChange", data);
+                        JSObject data = new JSObject();
+                        data.put("state", state);
+                        data.put("serverName", serverName);
+                        data.put("serverIp", serverIp);
+                        notifyListeners("vpnStateChange", data);
+                    }
                 }
-            }
-        };
+            };
 
-        IntentFilter filter = new IntentFilter(AntaresVpnService.ACTION_STATUS_BROADCAST);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            getContext().registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            getContext().registerReceiver(statusReceiver, filter);
+            IntentFilter filter = new IntentFilter(AntaresVpnService.ACTION_STATUS_BROADCAST);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getContext().registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                getContext().registerReceiver(statusReceiver, filter);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Erreur enregistrement statusReceiver: " + e.getMessage());
         }
     }
 
@@ -81,16 +85,21 @@ public class AntaresVpnPlugin extends Plugin {
      */
     @PluginMethod
     public void prepare(PluginCall call) {
-        Intent intent = VpnService.prepare(getContext());
-        if (intent != null) {
-            // L'utilisateur doit accepter la demande VPN système Android
-            startActivityForResult(call, intent, "vpnPermissionResult");
-        } else {
-            // Déjà autorisé
-            JSObject ret = new JSObject();
-            ret.put("granted", true);
-            ret.put("message", "Permission VPN accordée");
-            call.resolve(ret);
+        try {
+            Intent intent = VpnService.prepare(getContext());
+            if (intent != null) {
+                // L'utilisateur doit accepter la demande VPN système Android
+                startActivityForResult(call, intent, "vpnPermissionResult");
+            } else {
+                // Déjà autorisé
+                JSObject ret = new JSObject();
+                ret.put("granted", true);
+                ret.put("message", "Permission VPN accordée");
+                call.resolve(ret);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur prepare VPN: " + e.getMessage());
+            call.reject("Impossible de préparer le service VPN: " + e.getMessage());
         }
     }
 
@@ -116,47 +125,52 @@ public class AntaresVpnPlugin extends Plugin {
      */
     @PluginMethod
     public void start(PluginCall call) {
-        Intent prepareIntent = VpnService.prepare(getContext());
-        if (prepareIntent != null) {
-            call.reject("Permission VPN requise avant le démarrage. Appelez prepare() d'abord.");
-            return;
-        }
-
-        String serverName = call.getString("serverName", "Antares Paris VIP");
-        String serverIp = call.getString("serverIp", "185.190.142.66");
-        int serverPort = call.getInt("serverPort", 443);
-        String protocol = call.getString("protocol", "VLESS-Reality");
-        String dns = call.getString("dns", "1.1.1.1");
-
-        JSArray bypassArr = call.getArray("bypassPackages");
-        ArrayList<String> bypassList = new ArrayList<>();
-        if (bypassArr != null) {
-            for (int i = 0; i < bypassArr.length(); i++) {
-                try {
-                    bypassList.add(bypassArr.getString(i));
-                } catch (Exception ignored) {}
+        try {
+            Intent prepareIntent = VpnService.prepare(getContext());
+            if (prepareIntent != null) {
+                call.reject("Permission VPN requise avant le démarrage. Appelez prepare() d'abord.");
+                return;
             }
+
+            String serverName = call.getString("serverName", "Antares VLESS Tokyo Reality");
+            String serverIp = call.getString("serverIp", "185.190.142.66");
+            int serverPort = call.getInt("serverPort", 443);
+            String protocol = call.getString("protocol", "VLESS-Reality");
+            String dns = call.getString("dns", "1.1.1.1");
+
+            JSArray bypassArr = call.getArray("bypassPackages");
+            ArrayList<String> bypassList = new ArrayList<>();
+            if (bypassArr != null) {
+                for (int i = 0; i < bypassArr.length(); i++) {
+                    try {
+                        bypassList.add(bypassArr.getString(i));
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            Intent intent = new Intent(getContext(), AntaresVpnService.class);
+            intent.setAction(AntaresVpnService.ACTION_CONNECT);
+            intent.putExtra("server_name", serverName);
+            intent.putExtra("server_ip", serverIp);
+            intent.putExtra("server_port", serverPort);
+            intent.putExtra("protocol", protocol);
+            intent.putExtra("dns", dns);
+            intent.putStringArrayListExtra("bypass_packages", bypassList);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(intent);
+            } else {
+                getContext().startService(intent);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("state", "connecting");
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur fatale lors du start VPN: " + e.getMessage());
+            call.reject("Erreur de lancement du VPN: " + e.getMessage());
         }
-
-        Intent intent = new Intent(getContext(), AntaresVpnService.class);
-        intent.setAction(AntaresVpnService.ACTION_CONNECT);
-        intent.putExtra("server_name", serverName);
-        intent.putExtra("server_ip", serverIp);
-        intent.putExtra("server_port", serverPort);
-        intent.putExtra("protocol", protocol);
-        intent.putExtra("dns", dns);
-        intent.putStringArrayListExtra("bypass_packages", bypassList);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getContext().startForegroundService(intent);
-        } else {
-            getContext().startService(intent);
-        }
-
-        JSObject ret = new JSObject();
-        ret.put("success", true);
-        ret.put("state", "connecting");
-        call.resolve(ret);
     }
 
     /**
@@ -164,14 +178,19 @@ public class AntaresVpnPlugin extends Plugin {
      */
     @PluginMethod
     public void stop(PluginCall call) {
-        Intent intent = new Intent(getContext(), AntaresVpnService.class);
-        intent.setAction(AntaresVpnService.ACTION_DISCONNECT);
-        getContext().startService(intent);
+        try {
+            Intent intent = new Intent(getContext(), AntaresVpnService.class);
+            intent.setAction(AntaresVpnService.ACTION_DISCONNECT);
+            getContext().startService(intent);
 
-        JSObject ret = new JSObject();
-        ret.put("success", true);
-        ret.put("state", "disconnected");
-        call.resolve(ret);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("state", "disconnected");
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur stop VPN: " + e.getMessage());
+            call.reject("Impossible d'arrêter le VPN: " + e.getMessage());
+        }
     }
 
     /**
@@ -179,15 +198,19 @@ public class AntaresVpnPlugin extends Plugin {
      */
     @PluginMethod
     public void getStatus(PluginCall call) {
-        boolean isRunning = AntaresVpnService.isRunning();
-        JSObject ret = new JSObject();
-        ret.put("connected", isRunning);
-        ret.put("durationSeconds", AntaresVpnService.getDurationSeconds());
-        ret.put("bytesIn", AntaresVpnService.getBytesIn());
-        ret.put("bytesOut", AntaresVpnService.getBytesOut());
-        ret.put("serverName", AntaresVpnService.getActiveServerName());
-        ret.put("serverIp", AntaresVpnService.getActiveServerIp());
-        call.resolve(ret);
+        try {
+            boolean isRunning = AntaresVpnService.isRunning();
+            JSObject ret = new JSObject();
+            ret.put("connected", isRunning);
+            ret.put("durationSeconds", AntaresVpnService.getDurationSeconds());
+            ret.put("bytesIn", AntaresVpnService.getBytesIn());
+            ret.put("bytesOut", AntaresVpnService.getBytesOut());
+            ret.put("serverName", AntaresVpnService.getActiveServerName());
+            ret.put("serverIp", AntaresVpnService.getActiveServerIp());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Erreur getStatus: " + e.getMessage());
+        }
     }
 
     /**
@@ -202,7 +225,6 @@ public class AntaresVpnPlugin extends Plugin {
 
             JSArray resultList = new JSArray();
             for (ApplicationInfo app : apps) {
-                // Ne garder que les applications non-système ou les navigateurs courants
                 boolean isSystem = (app.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
                 String pkg = app.packageName;
 
