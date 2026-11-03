@@ -37,6 +37,7 @@ import {
 import { INITIAL_SERVERS } from './data/servers';
 import { cyberAudio } from './utils/audio';
 import { realVpn } from './services/realVpnEngine';
+import { NeonTheme, DEFAULT_THEME_ID, getThemeById, applyThemeToDom } from './utils/theme';
 
 const INITIAL_APPS: AppProfile[] = [
   { packageName: 'com.android.chrome', appName: 'Google Chrome', iconType: '🌐', isBypassed: false },
@@ -102,6 +103,16 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => cyberAudio.isEnabled());
   const [selectedProtocol, setSelectedProtocol] = useState<VpnProtocol>('VLESS-Reality');
   const [selectedDns, setSelectedDns] = useState<string>('1.1.1.1');
+
+  // 11 Neon Glitch Themes (Multicolor Cyber Glitch by default)
+  const [currentTheme, setCurrentTheme] = useState<NeonTheme>(() => {
+    const userExplicit = localStorage.getItem('antares_user_explicit_theme');
+    const saved = localStorage.getItem('antares_neon_theme');
+    if (userExplicit === 'true' && saved) {
+      return getThemeById(saved);
+    }
+    return getThemeById(DEFAULT_THEME_ID);
+  });
 
   // Token & License
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(() => {
@@ -192,6 +203,11 @@ export default function App() {
       localStorage.removeItem('antares_token_info');
     }
   }, [tokenInfo]);
+
+  useEffect(() => {
+    applyThemeToDom(currentTheme);
+    localStorage.setItem('antares_neon_theme', currentTheme.id);
+  }, [currentTheme]);
 
   // Real Telemetry loop (Android VpnService TUN bytes or real network throughput)
   useEffect(() => {
@@ -411,7 +427,7 @@ export default function App() {
   return (
     <AndroidFrame isPhoneFrame={isPhoneFrame}>
       {/* Background Multi-Layer with Antares Rain */}
-      <AntaresBackground reducedEffects={reducedEffects} />
+      <AntaresBackground reducedEffects={reducedEffects} theme={currentTheme} />
 
       {/* Main App Container */}
       <div className="relative z-10 flex flex-col h-full w-full select-none">
@@ -450,6 +466,7 @@ export default function App() {
             tokenInfo={tokenInfo}
             realIp={realPublicIp}
             isNativeAndroid={isNativeAndroid}
+            theme={currentTheme}
           />
         )}
 
@@ -502,6 +519,11 @@ export default function App() {
             onOpenToken={() => setIsTokenModalOpen(true)}
             onOpenSplitTunneling={() => setIsSplitTunnelingOpen(true)}
             onOpenAndroidCenter={() => setIsAndroidCenterOpen(true)}
+            currentTheme={currentTheme}
+            onSelectTheme={(t) => {
+              setCurrentTheme(t);
+              localStorage.setItem('antares_user_explicit_theme', 'true');
+            }}
           />
         )}
 
@@ -593,6 +615,7 @@ export default function App() {
         onOpenPremium={() => setIsPremiumModalOpen(true)}
         onOpenAndroidCenter={() => setIsAndroidCenterOpen(true)}
         onOpenDiagnostics={() => setIsDiagnosticsOpen(true)}
+        currentTheme={currentTheme}
       />
 
       <RealDiagnosticsModal

@@ -4,10 +4,12 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import { NeonTheme } from '../utils/theme';
 
 interface AntaresBackgroundProps {
   reducedEffects?: boolean;
   rainOpacity?: number;
+  theme?: NeonTheme;
 }
 
 interface RainStream {
@@ -34,6 +36,7 @@ const RAIN_COLORS = [
 export const AntaresBackground: React.FC<AntaresBackgroundProps> = ({
   reducedEffects = false,
   rainOpacity = 0.85,
+  theme,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -150,17 +153,25 @@ export const AntaresBackground: React.FC<AntaresBackgroundProps> = ({
       {/* 1. Deep Black Cyber Gradient Base */}
       <div className="absolute inset-0 bg-[#03010B]" />
 
-      {/* Cyber ambient glows matching screenshot */}
+      {/* Cyber ambient glows matching active theme */}
       <div 
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] rounded-full blur-[120px] opacity-35"
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] rounded-full blur-[120px] opacity-35 transition-all duration-700"
         style={{
-          background: 'radial-gradient(circle, rgba(0,229,255,0.45) 0%, rgba(139,0,255,0.3) 60%, transparent 100%)',
+          background: theme?.isMulticolor
+            ? 'radial-gradient(circle, rgba(0,229,255,0.45) 0%, rgba(157,0,255,0.35) 60%, transparent 100%)'
+            : theme 
+            ? `radial-gradient(circle, ${theme.primary}66 0%, ${theme.glow}40 60%, transparent 100%)`
+            : 'radial-gradient(circle, rgba(0,229,255,0.45) 0%, rgba(139,0,255,0.3) 60%, transparent 100%)',
         }}
       />
       <div 
-        className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full blur-[120px] opacity-30"
+        className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full blur-[120px] opacity-30 transition-all duration-700"
         style={{
-          background: 'radial-gradient(circle, rgba(255,0,229,0.4) 0%, rgba(157,0,255,0.2) 70%, transparent 100%)',
+          background: theme?.isMulticolor
+            ? 'radial-gradient(circle, rgba(255,0,229,0.4) 0%, rgba(255,230,0,0.2) 70%, transparent 100%)'
+            : theme
+            ? `radial-gradient(circle, ${theme.secondary}66 0%, ${theme.primary}33 70%, transparent 100%)`
+            : 'radial-gradient(circle, rgba(255,0,229,0.4) 0%, rgba(157,0,255,0.2) 70%, transparent 100%)',
         }}
       />
 

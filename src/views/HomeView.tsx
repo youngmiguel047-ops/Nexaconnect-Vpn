@@ -19,6 +19,7 @@ import {
   TokenInfo 
 } from '../types/vpn';
 import { cyberAudio } from '../utils/audio';
+import { NeonTheme } from '../utils/theme';
 
 interface HomeViewProps {
   connectionState: VpnConnectionState;
@@ -35,6 +36,7 @@ interface HomeViewProps {
   tokenInfo: TokenInfo | null;
   realIp?: string;
   isNativeAndroid?: boolean;
+  theme?: NeonTheme;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -52,6 +54,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   tokenInfo,
   realIp = '82.64.120.45',
   isNativeAndroid = false,
+  theme,
 }) => {
   const isVip = Boolean(tokenInfo && tokenInfo.status === 'active');
 
@@ -70,6 +73,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <VpnPowerButton
         state={connectionState}
         onToggleConnect={onToggleConnect}
+        theme={theme}
       />
 
       {/* 3. Server Selector Card matching Screenshot */}

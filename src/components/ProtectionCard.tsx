@@ -55,7 +55,7 @@ export const ProtectionCard: React.FC<ProtectionCardProps> = ({
             )}
           </div>
 
-          {/* Texts exactly matching screenshot */}
+          {/* Texts exactly matching specification */}
           <div className="flex flex-col min-w-0">
             <h3 className="font-orbitron font-bold text-xs sm:text-sm tracking-wide text-white truncate">
               {isConnected ? (
@@ -79,7 +79,7 @@ export const ProtectionCard: React.FC<ProtectionCardProps> = ({
 
             <p className="text-xs text-slate-300 font-rajdhani font-medium tracking-wide mt-0.5 truncate">
               {isConnected
-                ? `Tunnel actif • IP: ${protectedIp || activeServer.ip}`
+                ? 'Naviguez en toute sécurité'
                 : isConnecting
                 ? `Échange de clés avec ${activeServer.name}`
                 : isError

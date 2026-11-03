@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { QuickSettings, TokenInfo, VpnProtocol } from '../types/vpn';
 import { cyberAudio } from '../utils/audio';
+import { NeonTheme } from '../utils/theme';
+import { ThemeSelectorCard } from '../components/ThemeSelectorCard';
 
 interface SettingsViewProps {
   quickSettings: QuickSettings;
@@ -40,6 +42,8 @@ interface SettingsViewProps {
   onOpenToken: () => void;
   onOpenSplitTunneling: () => void;
   onOpenAndroidCenter: () => void;
+  currentTheme: NeonTheme;
+  onSelectTheme: (theme: NeonTheme) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -58,6 +62,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenToken,
   onOpenSplitTunneling,
   onOpenAndroidCenter,
+  currentTheme,
+  onSelectTheme,
 }) => {
   const [showLegalModal, setShowLegalModal] = useState(false);
 
@@ -148,12 +154,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {/* Cyberpunk Theme Indicator */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-800/60 text-xs font-mono-tech">
-          <span className="text-slate-400">Thème Actif :</span>
-          <span className="text-[#00E5FF] font-bold">Neon Glitch Cyberpunk (Sombre)</span>
+          <span className="text-slate-400">Ambiance active :</span>
+          <span className="font-orbitron font-bold" style={{ color: currentTheme.primary, textShadow: `0 0 8px ${currentTheme.glow}` }}>
+            {currentTheme.name}
+          </span>
         </div>
       </div>
 
-      {/* 2. Moteur VPN & Protocoles (sing-box) */}
+      {/* 2. NEON GLITCH THEMES SELECTOR */}
+      <ThemeSelectorCard
+        currentThemeId={currentTheme.id}
+        onSelectTheme={onSelectTheme}
+      />
+
+      {/* 3. Moteur VPN & Protocoles (sing-box) */}
       <div className="p-4 rounded-xl bg-[#09051C] border border-[#8B00FF]/35 space-y-3 cyber-cut">
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-[#8B00FF]" />

@@ -38,32 +38,42 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange })
                   cyberAudio.playClick();
                   onTabChange(tab.id);
                 }}
-                className={`relative flex flex-col items-center justify-center py-1 transition-all cursor-pointer min-h-[44px] ${
-                  isSelected ? 'text-[#FF00E5]' : 'text-slate-400 hover:text-slate-200'
-                }`}
+                className="relative flex flex-col items-center justify-center py-1 transition-all cursor-pointer min-h-[44px]"
+                style={{
+                  color: isSelected ? 'var(--neon-primary)' : '#94A3B8',
+                }}
               >
                 {/* Icon */}
                 <Icon
-                  className={`w-5 h-5 transition-transform duration-200 ${
-                    isSelected
-                      ? 'text-[#FF00E5] filter drop-shadow-[0_0_8px_#FF00E5] scale-110'
-                      : 'text-slate-400'
-                  }`}
+                  className="w-5 h-5 transition-transform duration-200"
+                  style={{
+                    color: isSelected ? 'var(--neon-primary)' : '#94A3B8',
+                    filter: isSelected ? 'drop-shadow(0 0 6px var(--neon-glow))' : undefined,
+                    transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                  }}
                   strokeWidth={isSelected ? 2.5 : 2}
                 />
 
                 {/* Label */}
                 <span
-                  className={`text-[11px] font-rajdhani font-bold tracking-wide mt-0.5 ${
-                    isSelected ? 'text-white text-glow-magenta' : 'text-slate-400'
-                  }`}
+                  className="text-[11px] font-rajdhani font-bold tracking-wide mt-0.5"
+                  style={{
+                    color: isSelected ? '#FFFFFF' : '#94A3B8',
+                    textShadow: isSelected ? '0 0 8px var(--neon-glow)' : undefined,
+                  }}
                 >
                   {tab.label}
                 </span>
 
-                {/* Underline indicator exactly like Screenshot 1 */}
+                {/* Underline indicator */}
                 {isSelected && (
-                  <div className="absolute -bottom-1 w-6 h-0.5 rounded-full bg-white shadow-[0_0_8px_#FFFFFF]" />
+                  <div 
+                    className="absolute -bottom-1 w-6 h-0.5 rounded-full"
+                    style={{
+                      backgroundColor: 'var(--neon-primary)',
+                      boxShadow: '0 0 8px var(--neon-glow)',
+                    }}
+                  />
                 )}
               </button>
             );

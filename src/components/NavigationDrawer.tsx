@@ -16,10 +16,12 @@ import {
   Activity, 
   Settings, 
   Plus,
-  Radio
+  Radio,
+  Palette
 } from 'lucide-react';
 import { TokenInfo } from '../types/vpn';
 import { cyberAudio } from '../utils/audio';
+import { NeonTheme } from '../utils/theme';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -32,6 +34,7 @@ interface NavigationDrawerProps {
   onOpenPremium: () => void;
   onOpenAndroidCenter: () => void;
   onOpenDiagnostics?: () => void;
+  currentTheme?: NeonTheme;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
@@ -45,6 +48,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenPremium,
   onOpenAndroidCenter,
   onOpenDiagnostics,
+  currentTheme,
 }) => {
   if (!isOpen) return null;
 
@@ -179,6 +183,32 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             >
               <Settings className="w-4 h-4 text-[#8B00FF]" />
               <span>Paramètres Système</span>
+            </button>
+
+            <button
+              onClick={() => {
+                cyberAudio.playClick();
+                onNavigateTab('settings');
+                onClose();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/40 border border-slate-800 hover:border-slate-700 transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <Palette className="w-4 h-4 text-[#00E5FF]" />
+                <span className="text-slate-300">Ambiance Néon</span>
+              </div>
+              {currentTheme && (
+                <span
+                  className="text-[10px] font-mono-tech font-bold px-1.5 py-0.5 rounded border"
+                  style={{
+                    color: currentTheme.primary,
+                    borderColor: `${currentTheme.primary}40`,
+                    backgroundColor: `${currentTheme.primary}15`,
+                  }}
+                >
+                  {currentTheme.name}
+                </span>
+              )}
             </button>
 
             <div className="pt-2 my-2 border-t border-slate-800">
