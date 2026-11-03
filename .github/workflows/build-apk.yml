@@ -29,11 +29,11 @@ jobs:
         with:
           bun-version: latest
 
-      - name: 4. Configurer Java 21 (JDK Temurin)
+      - name: 4. Configurer Java 17 (JDK Temurin)
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: 5. Configurer le cache Gradle officiel
         uses: gradle/actions/setup-gradle@v4
@@ -44,8 +44,14 @@ jobs:
         run: |
           mkdir -p android
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" 2>/dev/null || true
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(which sdkmanager || echo "")
+          fi
+          if [ -n "$SDKMANAGER" ] && [ -x "$SDKMANAGER" ]; then
+            yes | $SDKMANAGER --licenses 2>/dev/null || true
+            $SDKMANAGER "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" || true
+          fi
 
       - name: 7. Installer les dépendances du projet
         run: bun install
